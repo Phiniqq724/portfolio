@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Fontshare fonts: the ITF Free Font License forbids redistributing the files
+# through a repository. scripts/fonts.mjs downloads them before dev and build.
+/app/fonts/*.woff2

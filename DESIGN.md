@@ -347,3 +347,9 @@ grid grid-cols-2 md:grid-cols-12`: nav links, socials (external, noreferrer),
 - `lib/larp.ts` is a tiny shared store. The footer headline sets it; the nav
   button reads it and rolls "Let's Talk" to "Let's Larp" in a fixed-width
   grid cell, so the bar never shifts.
+- Fonts are not committed. The ITF Free Font License allows self-hosting but
+  forbids redistributing the files through a repository, so
+  `app/fonts/*.woff2` is git-ignored and `scripts/fonts.mjs` downloads them
+  from Fontshare in `predev` and `prebuild`.
+- Licensing: code under MIT (`LICENSE`); personal content, wordmark, icons,
+  and share images all rights reserved (`NOTICE.md`).
