@@ -1,26 +1,221 @@
 @import "tailwindcss";
 
+/*
+  Tokens, version 2. Monochrome base plus ONE accent (acid lime). Sections set
+  their own tone with data-tone="light|dark|accent"; components only ever use
+  the tone-relative tokens (bg, fg, fg-2, line) so the same component works on
+  every tone. Never write a hex inside a component.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #f1f0ec;
+  --ink: #141413;
+  --ink-2: #5c5b56;
+  --line-on-light: rgba(20, 20, 19, 0.16);
+  --line-on-dark: rgba(241, 240, 236, 0.18);
+  /* Accent per hero mode. --accent is the live one; the hero's selection bar
+     uses the target mode's accent directly. */
+  --accent-web: #d9f52c;
+  --accent-sketch: #ff4d5e;
+  --accent: var(--accent-web);
+
+  /* Evidence card palette. Each card owns one. All pairs verified AA. */
+  --cobalt: #2447f5;
+  --peach: #f3cdb0;
+  --plum: #5b4a6e;
+  --sand: #cfc7b4;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.83, 0, 0.17, 1);
+  --dur: 600ms;
+  --nav-h: 4.5rem;
+}
+
+/* Tone contexts. Default is light. */
+:root,
+[data-tone="light"] {
+  --bg: var(--canvas);
+  --fg: var(--ink);
+  --fg-2: var(--ink-2);
+  --line: var(--line-on-light);
+  --tone-invert-bg: var(--ink);
+  --tone-invert-fg: var(--canvas);
+}
+[data-tone="dark"] {
+  --bg: var(--ink);
+  --fg: var(--canvas);
+  --fg-2: #a9a8a2;
+  --line: var(--line-on-dark);
+  --tone-invert-bg: var(--canvas);
+  --tone-invert-fg: var(--ink);
+}
+[data-tone="accent"] {
+  --bg: var(--accent);
+  --fg: var(--ink);
+  --fg-2: #4a4a3e;
+  --line: rgba(20, 20, 19, 0.22);
+  --tone-invert-bg: var(--ink);
+  --tone-invert-fg: var(--accent);
+}
+
+/*
+  Sketch mode. The hero sets data-mode="sketch" on <html> once SKETCH &
+  ILLUSTRATE has finished typing, and removes it when WEBSITE ENTHUSIAST is
+  back. The whole accent turns from lime to rose red. True crimson (#dc143c)
+  was rejected: ink on it is 3.69:1 and fails AA. Verified pairs: ink on
+  #ff4d5e 5.68:1, #ff4d5e on ink 5.68:1, #3b1418 on #ff4d5e 4.98:1.
+*/
+:root[data-mode="sketch"] {
+  --accent: var(--accent-sketch);
+}
+:root[data-mode="sketch"] [data-tone="accent"] {
+  --fg-2: #3b1418;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-line: var(--line);
+  --color-invert-bg: var(--tone-invert-bg);
+  --color-invert-fg: var(--tone-invert-fg);
+
+  --color-canvas: var(--canvas);
+  --color-ink: var(--ink);
+  --color-accent: var(--accent);
+  --color-cobalt: var(--cobalt);
+  --color-peach: var(--peach);
+  --color-plum: var(--plum);
+  --color-sand: var(--sand);
+
+  --font-display: var(--font-clash), "Helvetica Neue", Arial, sans-serif;
+  --font-sans: var(--font-switzer), "Helvetica Neue", Arial, sans-serif;
+
+  --ease-out-expo: var(--ease-out);
+  --ease-in-out-expo: var(--ease-in-out);
+
+  /* Type scale. Display sizes are Clash Display; set font-display alongside. */
+  --text-giant: clamp(2.75rem, 12.7vw, 11.4rem); /* cap keeps the hero line inside the 1400px container at weight 700 */
+  --text-giant--line-height: 0.86;
+  --text-giant--letter-spacing: -0.03em;
+  --text-giant--font-weight: 600;
+
+  --text-display: clamp(3rem, 8vw, 8rem);
+  --text-display--line-height: 0.92;
+  --text-display--letter-spacing: -0.025em;
+  --text-display--font-weight: 600;
+
+  --text-h2: clamp(2rem, 4.5vw, 4rem);
+  --text-h2--line-height: 1;
+  --text-h2--letter-spacing: -0.02em;
+  --text-h2--font-weight: 500;
+
+  --text-h3: clamp(1.5rem, 2.6vw, 2.5rem);
+  --text-h3--line-height: 1.05;
+  --text-h3--letter-spacing: -0.015em;
+  --text-h3--font-weight: 500;
+
+  --text-lead: clamp(1.25rem, 2vw, 1.75rem);
+  --text-lead--line-height: 1.3;
+  --text-lead--letter-spacing: -0.01em;
+  --text-lead--font-weight: 400;
+
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.55;
+
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.4;
+  --text-meta--letter-spacing: 0.06em;
+
+  --spacing-section: clamp(6rem, 12vw, 12rem);
+  --spacing-gutter: clamp(1.25rem, 3.5vw, 3rem);
+  --spacing-nav: var(--nav-h);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
+  scroll-behavior: auto;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Any element with a tone paints itself with it. */
+[data-tone] {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 3px;
+}
+
+/* Utility: small uppercase label. Max 3 uses on the whole page. */
+@utility meta {
+  font-size: var(--text-meta);
+  line-height: var(--text-meta--line-height);
+  letter-spacing: var(--text-meta--letter-spacing);
+  text-transform: uppercase;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Utility: underline that draws in from the left on hover. */
+@utility link-line {
+  position: relative;
+  text-decoration: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  transition: background-size var(--dur) var(--ease-out);
+  padding-bottom: 1px;
+}
+@utility link-line-hover {
+  background-size: 100% 1px;
+}
+
+/* Utility: index label like [01]. Tabular so columns line up. */
+@utility index {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.875rem;
+  color: var(--fg-2);
+}
+
+/* Variable font axes for Clash Display (wght 200 to 700). */
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+/* Hero typing caret. Blinks only while a word holds; steps, not a fade. */
+@keyframes caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.hero-caret[data-blink="true"] {
+  animation: caret-blink 1.05s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
