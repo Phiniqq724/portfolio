@@ -3,14 +3,11 @@
  * sndyy.id, September 2026. Where they disagree, the resume wins. Every
  * number below comes from the resume. Plain language only: no em-dashes.
  *
- * Photos: the three personal photos are local files in public/images. Replace
- * them with your own, same file names. See public/images/README.md.
+ * Photo: the site shows one personal photo, the portrait in About, a local
+ * file in public/images. See public/images/README.md.
  * Project images are the public Supabase storage URLs used by sndyy.id.
  */
-import heroTileImg from "@/public/images/hero-tile.jpg";
-import heroTileSketchImg from "@/public/images/hero-tile-sketch.jpg";
 import portraitImg from "@/public/images/portrait.jpg";
-import footerTileImg from "@/public/images/footer-tile.jpg";
 
 const STORAGE = "https://foxivehwqliehofhwsrd.supabase.co/storage/v1/object/public/project-images";
 
@@ -34,8 +31,9 @@ export const site = {
     { index: "03", label: "Evidence", href: "#evidence" },
     { index: "04", label: "Experience", href: "#experience" },
   ],
-  // `altLabel` shows while the footer headline reads LET'S LARP.
-  contact: { label: "Let's Talk", altLabel: "Let's Larp", href: "#contact" },
+  // The nav button opens a mail to `email`. `altLabel` shows while the footer
+  // headline reads LET'S LARP.
+  contact: { label: "Let's Talk", altLabel: "Let's Larp" },
   socials: [
     { label: "LinkedIn", href: "https://www.linkedin.com/in/fahrell-sandy/" },
     { label: "GitHub", href: "https://github.com/phiniqq724" },
@@ -45,20 +43,11 @@ export const site = {
 
 export const hero = {
   meta: "Sandy, Indonesia",
-  // Line one morphs between these words on a loop. Line two stays.
+  // Line one types between these words on a loop. Line two stays.
   words: ["WEBSITE", "MOBILE"],
   line2: "ENTHUSIAST",
   label: "Website and mobile enthusiast",
   intro: "Frontend-focused software engineer. I build web and mobile products with Next.js, React, and Expo.",
-  tile: { src: heroTileImg, alt: `Photo of ${site.name}` },
-  // Second mode, reached by pressing the tile (desktop) or the headline (phone).
-  // ILLUSTRATE has as many letters as ENTHUSIAST, so the tile keeps its place.
-  sketch: {
-    line1: "SKETCH &",
-    line2: "ILLUSTRATE",
-    label: "Sketch and illustrate",
-    tile: { src: heroTileSketchImg, alt: `Illustration by ${site.name}` },
-  },
 };
 
 /** One kinetic strip on the arc. Sits between hero and about. */
@@ -242,15 +231,16 @@ export const certificates = [
 
 export const experienceHeading = "Experience";
 
+/** Oldest first: school, then each role up to the current one. */
 export const experience = [
   {
-    year: "2026",
-    period: "Jun 2026 - Now",
-    role: "Junior Website Developer",
-    company: "Wahana Makmur Sejati",
-    href: "https://www.wahanaartha.com/",
+    year: "2023",
+    period: "2023 - 2026",
+    role: "Vocational High School",
+    company: "SMK Telkom Malang",
+    href: "https://smktelkom-mlg.sch.id/",
     summary:
-      "Building internal business systems with CakePHP and JavaScript on a five-person team. I wrote the team's coding standards, now used on two projects, and replaced full-page reloads with API-driven partial updates.",
+      "Studied programming fundamentals, data structures, and algorithms, and led the front-end division of the METIC tech community. Most of the projects above started here.",
   },
   {
     year: "2025",
@@ -262,13 +252,13 @@ export const experience = [
       "Built and maintained low-code applications on Mendix, delivering internal tools and business process solutions with the engineering team.",
   },
   {
-    year: "2023",
-    period: "2023 - 2026",
-    role: "Vocational High School",
-    company: "SMK Telkom Malang",
-    href: "https://smktelkom-mlg.sch.id/",
+    year: "2026",
+    period: "Jun 2026 - Now",
+    role: "Junior Website Developer",
+    company: "Wahana Makmur Sejati",
+    href: "https://www.wahanaartha.com/",
     summary:
-      "Studied programming fundamentals, data structures, and algorithms, and led the front-end division of the METIC tech community. Most of the projects above started here.",
+      "Building internal business systems with CakePHP and JavaScript on a five-person team. I wrote the team's coding standards, now used on two projects, and replaced full-page reloads with API-driven partial updates.",
   },
 ];
 
@@ -278,5 +268,4 @@ export const footer = {
   // Pressing the footer headline rolls line two to this and back.
   line2Alt: "LARP.",
   note: "Tell me what you are building, or just say hi. Small talk is a fine place to start.",
-  tile: { src: footerTileImg, alt: `Photo of ${site.name}` },
 };

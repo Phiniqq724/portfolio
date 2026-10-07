@@ -18,13 +18,13 @@ This is a one-page portfolio built as a playground. The type, the grid, and the 
 
 | Section | What it does |
 | --- | --- |
-| **Hero** | Letter weights follow the cursor on Clash Display's variable axis. WEBSITE types itself into MOBILE on a loop. Pressing the photo tile selects and retypes the headline into SKETCH & ILLUSTRATE, and the site accent turns from lime to rose red. |
+| **Hero** | Letter weights follow the cursor on Clash Display's variable axis. On a loop, WEBSITE is selected like text and MOBILE types over it, then back. |
 | **Strip** | "WEBSITE / MOBILE ENTHUSIAST" rides a curve across the seam from light to dark, scrubbed by scroll. |
 | **About** | The statement brightens word by word as it scrolls past the middle of the screen. |
-| **What I do** | A keyboard-friendly accordion with a cursor-following preview image. |
-| **Evidence** | Six projects as colored cards that stick and stack as you scroll. |
-| **More evidence** | Verified certificates on a band that moves only when you scroll. |
-| **Experience** | A giant year pinned to the middle of the screen that flips as each role passes it. |
+| **What I do** | A compact list that opens on hover, showing each service's image inside the row; the open title gets a lime highlighter mark. Tap on phones, keyboard friendly. |
+| **Evidence** | Six projects as full-screen colored cards. Each holds for a moment, then falls behind the next to a random side and disappears. |
+| **More evidence** | Verified certificates as a compact ledger; hovering a row turns it lime. |
+| **Experience** | From school to the current role. A giant year pinned to the middle of the screen rolls only the digits that change as each role passes it. |
 | **Footer** | LET'S TALK. rolls into LET'S LARP. when pressed, and the nav button follows. |
 
 Every animation respects `prefers-reduced-motion`, the whole page works with a keyboard, and all text meets WCAG AA contrast.
@@ -71,7 +71,7 @@ The first `dev` or `build` downloads the fonts from Fontshare into `app/fonts/`.
 app/
   layout.tsx            Metadata, structured data, fonts, smooth scroll
   page.tsx              Section order
-  globals.css           Design tokens, tones, accents
+  globals.css           Design tokens, tones, accent
   sitemap.ts            /sitemap.xml
   robots.ts             /robots.txt
   manifest.ts           /manifest.webmanifest
@@ -85,7 +85,7 @@ lib/
   gsap.ts               GSAP and ScrollTrigger registration
   larp.ts               Shared state for the footer and nav LARP toggle
 public/
-  images/               Personal photos (see images/README.md)
+  images/               The About portrait (see images/README.md)
   resume.pdf
 scripts/
   fonts.mjs             Fontshare font download
@@ -95,7 +95,7 @@ DESIGN.md               Design spec and every decision made while building
 ## Editing content
 
 - **Text, links, projects, roles, certificates:** everything visible lives in [`content/site.ts`](content/site.ts). No copy is hardcoded in components.
-- **Photos:** replace the files in [`public/images/`](public/images/) and keep the file names. The layout reads each image's real size, so nothing gets cropped. [`public/images/README.md`](public/images/README.md) lists where each photo appears.
+- **Photo:** replace `portrait.jpg` in [`public/images/`](public/images/) and keep the file name. The layout reads the image's real size, so nothing gets cropped.
 - **Resume:** replace `public/resume.pdf`.
 - **Design rules:** [`DESIGN.md`](DESIGN.md) records the tokens, the section specs, and the reasons behind each choice. Read it before changing layout or motion.
 

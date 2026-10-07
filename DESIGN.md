@@ -45,7 +45,7 @@ use ONLY tone-relative colors: `bg-bg`, `text-fg`, `text-fg-2`, `border-line`,
 
 Page tone sequence (this is the rhythm, keep it):
 Nav (transparent over whatever is under it) → Hero light → Strip light→dark
-seam → About dark → What I do accent → Evidence light → Experience dark →
+seam → About dark → What I do light → Evidence light → Experience dark →
 Footer dark.
 
 Contrast is verified for: ink on canvas, canvas on ink, ink on accent, #4a4a3e
@@ -194,13 +194,13 @@ grid grid-cols-2 md:grid-cols-12`: nav links, socials (external, noreferrer),
   `whitespace-nowrap` and the hero section is `overflow-x-clip`.
 - Lenis is driven from the GSAP ticker by a `LenisTicker` child that uses
   `useLenis`; a parent ref reads undefined on the first effect. Anchors use
-  `anchors: true` with no offset: every section has `scroll-mt-nav` and Lenis
-  honors `scroll-margin-top`. The overlay menu restarts Lenis and calls
+  `anchors: true` with no offset. (Version 6: sections no longer carry
+  `scroll-mt-nav`; see the anchors bullet at the end.) The overlay menu restarts Lenis and calls
   `lenis.scrollTo(href)` itself because Lenis ignores anchors while stopped.
 - Strip: `preserveAspectRatio="xMinYMid slice"`, blend on the `<svg>`, no
   `data-tone`, sentence once in an sr-only paragraph.
 - About: no `meta`; all three fact labels are `text-sm text-fg-2`.
-- What I do: `ServiceAccordion` is the Motion leaf. Arrow keys and Home/End
+- (Superseded by Version 6: no cursor tile.) What I do: `ServiceAccordion` is the Motion leaf. Arrow keys and Home/End
   move between headers. The preview is a single fixed tile with all four
   images mounted; hidden state also sets `visibility: hidden`.
 - Evidence: section uses `overflow-x-clip` (overflow hidden would break
@@ -294,7 +294,7 @@ grid grid-cols-2 md:grid-cols-12`: nav links, socials (external, noreferrer),
   About portrait) so they sit on the surrounding surface and always show.
   About clips x (`overflow-x-clip`) so the tilted portrait's marks never
   cause phone overflow.
-- Certificates: a strip between Evidence and Experience (see
+- (Superseded by the Version 6 ledger.) Certificates: a strip between Evidence and Experience (see
   `components/sections/Certificates.tsx`), labeled "More evidence",
   scrubbed to scroll, never auto-looping, each ticket linking to its
   verification page. Tickets behave like the nav's "Let's Talk" button: no
@@ -353,3 +353,112 @@ grid grid-cols-2 md:grid-cols-12`: nav links, socials (external, noreferrer),
   from Fontshare in `predev` and `prebuild`.
 - Licensing: code under MIT (`LICENSE`); personal content, wordmark, icons,
   and share images all rights reserved (`NOTICE.md`).
+
+## Version 6 deltas (teacher and family review, Oct 2026)
+These override everything above where they conflict.
+- One photo on the whole page: the About portrait. The hero has no image,
+  the footer headline has no tile, and SKETCH & ILLUSTRATE mode is gone,
+  with the rose red accent, `data-mode`, and the tile. The accent is lime,
+  always. (A cut-out photo in the hero was tried and reverted by the owner.)
+- Hero: the four-corner layout from version 2, text only. The first word is
+  never erased letter by letter: after its hold, a lime selection bar sweeps
+  across it (420ms, rests 160ms), the word goes, and the other word types in
+  from the caret at 85ms per letter. Pressing the headline starts the swap
+  early. Reduced motion: no loop, a press swaps instantly.
+- Nav: "Let's Talk" is a `mailto:` link to `site.email`. The footer email
+  is the same intent. The nav still turns ink over any `data-tone="accent"`
+  surface, which is now only the lime Evidence card.
+- Experience runs oldest first (school, then each role up to now). Code
+  that wants the current role reads the LAST entry (`app/layout.tsx`).
+- Experience year: an odometer of four single-digit slots, each a one-cell
+  grid clipped on y. Only digits that differ roll (2025 to 2026 moves one
+  slot, 2029 to 2030 moves two), transform only, 0.45s expo.out, 0.04s
+  stagger left to right among changed slots. Scrolling down rolls the old
+  digit up and the new one in from below; scrolling back reverses it. A roll
+  in flight is completed before the next starts on that slot. Clash Display
+  has no tabular figures, so a changing cell takes the new digit's width
+  when the roll starts, not when it ends. Reduced motion swaps instantly.
+- What I do: light tone; the full lime section was too loud. Lime is a
+  highlighter mark (ink on lime) behind the open row's title, the section's
+  only lime at rest. It sweeps in from the left over 420ms on open and out
+  to the right on close; instant under reduced motion. The mark is a
+  single-color `linear-gradient` animated through `background-size` (a solid
+  fill, not a gradient), 1em tall and centered, with
+  `box-decoration-break: clone` so wrapped lines each get their own block.
+  The plus sign stays ink and hover adds no lime.
+- Evidence: full-bleed, full-screen cards at md+ (100vw x 100svh), content
+  in a 1400px inner wrapper under the nav, image capped by the remaining
+  height (`100cqh`). The stack is one sticky stage (top 0, `h-svh`,
+  `overflow: clip`) inside a wrapper `cards x 1.25` screens tall (plain CSS,
+  no GSAP pin, so the page height is final from first paint); cards sit
+  absolutely on it, later ones on top. One scrubbed timeline, in screens:
+  a card holds flat for 0.25 (shortened from 0.5 by the owner), then the next rises over 1 (yPercent 100 to 0)
+  while the covered card falls back (random `rollFall`, ink veil to 0.5),
+  and once fully covered it goes to opacity 0 (not visibility, so Tab still
+  reaches it). At most two cards are ever drawn; scrolling back reverses
+  it. The last card holds 0.25, then the stage releases. `rollFall`: left or
+  right, pivot near that top corner, rotateX 20-34, rotateY 6-16 and a
+  2-8deg turn toward that side, 3-9% drift, scale 0.74-0.84, never the same
+  side three times running. The lime card's nav probe is an invisible
+  `data-tone="accent"` box in the wrapper for its 1.25 screens. Below md and
+  under reduced motion: plain full-screen blocks in order, no 3D. Focusing a
+  hidden card scrolls a quarter screen into its hold.
+- About portrait always fits, tilt and crop marks included. Its footprint
+  (photo plus the marks 10px outside, turned -3deg: w*cos + h*sin wide,
+  w*sin + h*cos tall) is solved to be no wider than its column and no
+  taller than the screen minus the nav and 2rem above and below (`fit` in
+  About.tsx). Centered in its column at every width, sticky 2rem under the
+  nav. On phones the marks run exactly gutter to gutter. Checked with the
+  marks measured at 22 sizes from 320x568 to 1920x1080, landscape phones
+  too. Below 400px the What I do row tightens (2.25rem index, 1.25rem plus,
+  12px gaps) so "development" fits a 320px phone.
+- Accent as a hint, not a surface: no section is painted lime any more.
+  Lime appears on hover and on the active thing. `link-line` reads three
+  hint variables set per surface in globals.css: dark tones turn the link
+  text and underline lime; light tones keep ink text and grow a lime
+  highlighter band (0.42em) behind the word; `hint-plain` (lime surfaces,
+  the nav, whose difference blend would turn lime blue) keeps a
+  currentColor underline. Evidence cards pick `hint-dark`, `hint-light` or
+  `hint-plain` by their own color.
+- Footer: headline and email are one block. From md the headline takes
+  cols 1-7 and the email (`text-h3`, semibold, with a ↗ that nudges and
+  turns lime on hover) plus the note sit in cols 8-12, bottom-aligned with
+  TALK. Below md the email follows the headline 2rem under it.
+- Certificates: a dark ledger between Evidence and Experience, no lime
+  blocks. One `meta` ("More evidence") plus an `index` count, then one
+  hairline row per certificate, each a single new-tab link to its
+  verification page. md+: year cols 1-2, title (`text-h3`) 3-8, issuer
+  9-11, arrow 12. Below md: title on its own line, year and issuer small
+  under it, arrow right. Hover and focus are a hint: title and arrow turn
+  lime, the arrow moves 4px up-right, the year brightens; crop marks around
+  the arrow on hover only. Toy: hairlines draw in and rows rise once as the
+  list enters (GSAP, final state server-rendered). No scrub, pin or seam.
+- What I do is a compact hover list, after nbnzia: 96px closed rows at
+  md+, `[01]` index, `text-h3` title. One row open at a time, the first on
+  load. Pointer devices: resting 100ms on a row opens it; leaving the list
+  keeps the last one open; moves that repeat the last coordinates are
+  ignored. Keyboard focus opens a row, Enter/Space toggle; touch taps
+  toggle. md+: the open row shows its image on the right inside the row,
+  4:3, `min(24cqw, 22.5rem)` wide, outside crop marks, clipped in top-down
+  on the row's own 0.45s height curve. Below md no image, a plus marks the
+  row. The lime title mark stays. The cursor-following tile is gone.
+- Anchors land on the section's top edge, with no scroll margin. Every
+  nav target's own top padding (96px minimum) is taller than the 72px nav,
+  so the transparent bar only ever sits over that section's empty padding,
+  never over the end of the section above (the certificates ledger has no
+  bottom padding and used to show through). Footer headline: letter slots
+  clip on y only (an x clip cut the overhangs of Clash Display's A and K)
+  and animate their width to the letter shown, so TALK. and LARP. are both
+  spaced like normal type. Only the second word is the button (LET'S is
+  plain heading text): hover turns that word lime, and in LARP. it is lime
+  at rest and canvas on hover.
+- One divider per seam. A list does not draw a closing rule when something
+  right below already divides: the certificates ledger has top rules only
+  (the Experience heading and its first role rule follow), and the last
+  Experience role has no bottom rule (the footer's full-bleed top line
+  closes it). Two rules in a row read as lines stacking on each other,
+  most visibly on phones.
+- Experience "now": while the giant year belongs to the current role (the
+  last entry), it turns lime (`data-now` on the year, 500ms color fade with
+  the roll, back to canvas when scrolling up). Below md, where the giant
+  year is hidden, the current role's period ("Jun 2026 - Now") is lime.

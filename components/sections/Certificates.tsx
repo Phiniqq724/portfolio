@@ -1,202 +1,137 @@
 "use client";
 
-import { useLenis } from "lenis/react";
-import { useRef, type FocusEvent } from "react";
+import { useRef } from "react";
 import { Container } from "@/components/ui/Container";
+import { Corners } from "@/components/ui/Corners";
 import { certificates, certificatesHeading } from "@/content/site";
 import { gsap, useGSAP } from "@/lib/gsap";
 
 /*
-  Certificates. The second seam: light Evidence above turns into dark
-  Experience below. Like the Strip, the section has no tone and paints two
-  fixed halves, canvas on top and ink underneath. Unlike the Strip, nothing
-  rides an arc: five lime tickets sit in one straight row across the seam, so
-  every ticket stays readable and clickable to its verification page.
+  Certificates. Dark tone, a ledger: the coda of the Evidence story, small
+  and quiet between the last full-screen card and the Experience heading.
+  One `meta` label with a count, then one hairline row per certificate, each
+  row a single link to its verification page.
 
-  Layout: a three-row grid, `1fr auto 1fr`. The section height is content
-  driven, so both flexible rows resolve to the tallest content among them (the
-  heading), which keeps the ticket row centered on the section, which is where
-  the seam is.
+  Layout, md+: the 12-col grid. Year in cols 1-2, title in 3-8, issuer in
+  9-11, arrow at the right edge of 12. Below 768px: the title takes its own
+  line, year and issuer sit under it as a small line, and the arrow stays at
+  the right, centered on both lines.
 
-  Toy, md+ with motion on: the row's `x` is scrubbed to scroll. It enters
-  from the right and ends with the last ticket fully visible. The travel runs
-  from the moment the whole row is on screen at the bottom until it is about
-  to slide under the fixed nav at the top, so every position of the row, and so every ticket, can
-  be read with the row fully in view. It never moves on its own. No pinning.
+  Hover and focus are a hint, never a block of lime: the title and the arrow
+  turn lime (lime text is AA on ink only, and this section is always dark),
+  the arrow steps up and right, the year brightens to the main text color, and
+  crop marks fade in around the arrow on hover (focus already draws the
+  outline, so the marks would only crowd it). Transforms, opacity, and color
+  only.
 
-  Below md, and under reduced motion at any width: no GSAP. The row is a
-  native horizontal scroller with snap points and the gutter as scroll
-  padding.
+  Toy, motion on, any width: as the list enters, the hairlines draw in from
+  the left and each row's text rises a little, staggered, once. The server
+  renders everything in its final state, so without JS, and under reduced
+  motion (no tween is created), the list is simply there. No pinning, no
+  scrub.
 */
 
-/** How far right of its resting place the row starts, as a share of the viewport width. */
-const ENTER = 0.08;
-
-/** Height of the fixed nav, read from the --nav-h token so layout and motion agree. */
-const navHeight = () => {
-  const probe = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-h"));
-  return (probe || 4.5) * parseFloat(getComputedStyle(document.documentElement).fontSize);
-};
+/** The arrow, two strokes: a diagonal and the corner it points to. */
+function Arrow() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 md:h-5 md:w-5" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <path d="M3.5 12.5 12.5 3.5M5 3.5h7.5V11" />
+    </svg>
+  );
+}
 
 export function Certificates() {
   const sectionRef = useRef<HTMLElement>(null);
-  const rowRef = useRef<HTMLDivElement>(null);
-  const tweenRef = useRef<gsap.core.Tween | null>(null);
-  const lenis = useLenis();
-
-  /*
-    Row geometry, read on demand so the tween, a refresh, and the focus
-    handler all agree. The row is full bleed and starts at the viewport's left
-    edge, so offsets inside it are viewport positions before the transform.
-    The last ticket stops with the same inset on the right as the row's left
-    padding, so the two ends of the travel mirror each other.
-  */
-  const travel = () => {
-    const row = rowRef.current;
-    const last = row?.lastElementChild as HTMLElement | null;
-    if (!row || !last) return { from: 0, to: 0 };
-    const viewport = document.documentElement.clientWidth;
-    const inset = parseFloat(getComputedStyle(row).paddingLeft) || 0;
-    const overflow = last.offsetLeft + last.offsetWidth + inset - viewport;
-    if (overflow <= 0) return { from: 0, to: 0 };
-    return { from: window.innerWidth * ENTER, to: -overflow };
-  };
+  const count = String(certificates.length).padStart(2, "0");
 
   useGSAP(
     () => {
       const mm = gsap.matchMedia();
-      mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
-        tweenRef.current = gsap.fromTo(
-          rowRef.current,
-          { x: () => travel().from },
-          {
-            x: () => travel().to,
-            ease: "none",
-            scrollTrigger: {
-              trigger: rowRef.current,
-              start: "bottom bottom",
-              // Stop before the row reaches the fixed nav, which never hides.
-              end: () => `top top+=${navHeight() + 24}`,
-              scrub: 0.6,
-              invalidateOnRefresh: true,
-            },
-          },
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const list = sectionRef.current?.querySelector("ul");
+        if (!list) return;
+        const tl = gsap.timeline({
+          scrollTrigger: { trigger: list, start: "top 85%", once: true },
+          defaults: { duration: 0.9, ease: "expo.out" },
+        });
+        tl.from("[data-rule]", { scaleX: 0, stagger: 0.07 }, 0).from(
+          "[data-cells]",
+          { yPercent: 40, opacity: 0, stagger: 0.07 },
+          0.12,
         );
-        return () => {
-          tweenRef.current = null;
-        };
       });
     },
     { scope: sectionRef },
   );
 
-  /*
-    A keyboard user can focus a ticket that the scrub has carried off screen.
-    Scroll the page to the point where that ticket's center meets the
-    viewport's center, instead of letting focus land somewhere invisible.
-    Every point of the travel keeps the row fully in view vertically, so the
-    clamped progress is always a readable position.
-  */
-  const onTicketFocus = (event: FocusEvent<HTMLAnchorElement>) => {
-    const st = tweenRef.current?.scrollTrigger;
-    if (!st) return;
-    const { from, to } = travel();
-    if (from === to) return;
-    const ticket = event.currentTarget;
-    const viewport = document.documentElement.clientWidth;
-    const span = st.end - st.start;
-    if (span <= 0) return;
-
-    // By the time focus fires, the browser has already scrolled the ticket
-    // into view vertically, but the scrub (and the trigger's cached scroll
-    // value) are still catching up, so the ticket's rect shows a stale x.
-    // Judge visibility from the x the scrub is heading to at the live scroll
-    // position instead. A one-off read on focus, not a scroll listener.
-    const now = gsap.utils.clamp(0, 1, (window.scrollY - st.start) / span);
-    const left = ticket.offsetLeft + from + now * (to - from);
-    const rect = ticket.getBoundingClientRect();
-    const inView =
-      left >= 0 && left + ticket.offsetWidth <= viewport && rect.top >= navHeight() && rect.bottom <= window.innerHeight;
-    if (inView) return;
-
-    const center = ticket.offsetLeft + ticket.offsetWidth / 2;
-    const progress = gsap.utils.clamp(0, 1, (viewport / 2 - center - from) / (to - from));
-    const y = st.start + progress * span;
-
-    if (lenis) lenis.scrollTo(y, { duration: 0.6 });
-    else window.scrollTo({ top: y });
-  };
-
   return (
     <section
       ref={sectionRef}
       id="certificates"
+      data-tone="dark"
       aria-labelledby="certificates-heading"
-      className="relative isolate scroll-mt-nav overflow-x-clip py-24 md:py-32"
+      className="pt-24 md:pt-32"
     >
-      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-1/2 bg-canvas" />
-      <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-1/2 bg-ink" />
-
-      <div className="grid grid-cols-1 grid-rows-[1fr_auto_1fr] gap-y-10 md:gap-y-14">
-        <Container className="self-start">
+      <Container>
+        <div className="flex items-baseline gap-3">
           <h2 id="certificates-heading" className="meta">
             {certificatesHeading}
           </h2>
-        </Container>
-
-        {/*
-          The row. Its side padding lines the first ticket up with the
-          Container's content edge at every width (the 1400px cap included),
-          and the snap scroller uses the same inset as its scroll padding.
-          The grid column is minmax(0, 1fr) so the row, which is wider than
-          the screen, never widens the grid track (and with it the 50% above).
-          py-2 keeps the focus ring inside the scroller's clip below md; it is
-          symmetric, so the row stays centered on the seam.
-        */}
-        <div
-          ref={rowRef}
-          className="relative flex snap-x snap-mandatory gap-4 overflow-x-auto py-2 [--inset:max(var(--spacing-gutter),calc(50%-700px+var(--spacing-gutter)))] px-(--inset) scroll-px-(--inset) [scrollbar-width:none] md:gap-6 md:motion-safe:snap-none md:motion-safe:overflow-visible md:motion-safe:will-change-transform [&::-webkit-scrollbar]:hidden"
-        >
-          {certificates.map((cert) => (
-            <a
-              key={cert.href}
-              href={cert.href}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={`${cert.title}, ${cert.issuer} ${cert.year}, verify certificate (opens in a new tab)`}
-              onFocus={onTicketFocus}
-              className="group relative flex w-[min(80vw,26rem)] shrink-0 snap-start flex-col bg-accent p-6 text-ink transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:scale-[0.98] md:p-8"
-            >
-              <span className="flex items-start justify-between gap-4 text-sm">
-                <span>{cert.issuer}</span>
-                <span className="tabular-nums">{cert.year}</span>
-              </span>
-              <span className="mt-8 font-display text-h3 text-balance md:mt-12">{cert.title}</span>
-              <span className="mt-auto pt-10 text-sm font-medium md:pt-14">
-                <span className="link-line group-hover:link-line-hover">Verify</span>
-              </span>
-              {/*
-                Hover and focus: crop marks fade in just outside the ticket,
-                like the nav's "Let's Talk" button. Their color follows the
-                background under them, like the nav's blend: the ticket always
-                straddles the seam, so the top marks sit on canvas (ink marks)
-                and the bottom marks sit on ink (canvas marks). A real blend
-                mode cannot do this here, because the scrubbed row is
-                transformed and blends only with its own contents.
-              */}
-              <span
-                aria-hidden
-                className="pointer-events-none absolute -inset-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100"
-              >
-                <span className="absolute left-0 top-0 h-3 w-3 border-l border-t border-ink" />
-                <span className="absolute right-0 top-0 h-3 w-3 border-r border-t border-ink" />
-                <span className="absolute bottom-0 left-0 h-3 w-3 border-b border-l border-canvas" />
-                <span className="absolute bottom-0 right-0 h-3 w-3 border-b border-r border-canvas" />
-              </span>
-            </a>
-          ))}
+          {/* The list already announces its length; the count is for the eye. */}
+          <span aria-hidden className="index">
+            ({count})
+          </span>
         </div>
-      </div>
+
+        <ul className="mt-8 md:mt-10">
+          {certificates.map((cert) => (
+            <li key={cert.href} className="relative">
+              {/*
+                Hairlines are spans rather than borders so the entrance can
+                draw them in. Only top rules: the ledger has no closing line,
+                because the Experience heading and its first role rule follow
+                right after, and a closing rule here stacked a third line into
+                one short stretch of the screen.
+              */}
+              <span data-rule aria-hidden className="absolute inset-x-0 top-0 h-px origin-left bg-line" />
+              <a
+                href={cert.href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`${cert.title}, ${cert.issuer}, ${cert.year}. Opens the verification page in a new tab`}
+                className="group block py-4 md:py-5"
+              >
+                {/*
+                  < md: three columns, title across the first two on line one,
+                  year and issuer on line two, arrow in the third spanning both.
+                  md+: one line on the 12-col grid.
+                */}
+                <span
+                  data-cells
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1 md:grid-cols-12 md:gap-x-6"
+                >
+                  <span className="col-start-1 row-start-2 text-sm tabular-nums text-fg-2 transition-[color,translate] duration-500 ease-out-expo group-hover:text-fg group-focus-visible:text-fg md:col-span-2 md:row-start-1 md:text-body md:group-hover:translate-x-1 md:group-focus-visible:translate-x-1">
+                    {cert.year}
+                  </span>
+                  <span className="col-span-2 col-start-1 row-start-1 font-display text-h3 text-balance transition-colors duration-500 ease-out-expo group-hover:text-accent group-focus-visible:text-accent md:col-span-6 md:col-start-3">
+                    {cert.title}
+                  </span>
+                  <span className="col-start-2 row-start-2 min-w-0 text-sm text-fg-2 md:col-span-3 md:col-start-9 md:row-start-1 md:text-body">
+                    {cert.issuer}
+                  </span>
+                  <span className="relative col-start-3 row-span-2 row-start-1 flex h-10 w-10 items-center justify-center self-center transition-[color,translate] duration-500 ease-out-expo group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:text-accent group-focus-visible:translate-x-1 group-focus-visible:-translate-y-1 group-focus-visible:text-accent md:col-span-1 md:col-start-12 md:row-span-1 md:justify-self-end">
+                    <Arrow />
+                    <Corners
+                      size={6}
+                      className="text-fg opacity-0 transition-opacity duration-500 ease-out-expo group-hover:opacity-100"
+                    />
+                  </span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Container>
     </section>
   );
 }

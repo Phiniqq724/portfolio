@@ -13,6 +13,15 @@ import { about } from "@/content/site";
   statement, facts, nothing sticky. The fact rows keep their 8rem label column
   at every width; it fits a 390px viewport.
 
+  The portrait always fits, tilt and crop marks included. What has to fit is
+  its footprint: the photo plus the marks 10px outside it, turned -3deg.
+  For a w x h box that is w*cos + h*sin wide and w*sin + h*cos tall, so the
+  width is solved from both limits (see `fit` below): the footprint must be
+  no wider than the column (phones: the content width between the gutters,
+  so the section's x clip never cuts a mark) and no taller than the screen
+  minus the nav and 2rem above and below. It pins 2rem under the nav, so the
+  whole photo and its marks stay in view while it sticks.
+
   Toy: the statement's words start at opacity 0.4 and scrub to 1 one after
   another as the paragraph crosses the middle of the viewport. 0.4 keeps
   even the dimmed words at 3.5:1 on ink, above the 3:1 large-text minimum. The 0.4 is
@@ -21,6 +30,19 @@ import { about } from "@/content/site";
 */
 
 const WORDS = about.statement.split(" ");
+
+/** Portrait width that keeps the tilted photo and its outside marks in bounds. */
+const fit = (() => {
+  const tilt = (3 * Math.PI) / 180;
+  const cos = Math.cos(tilt);
+  const sin = Math.sin(tilt);
+  const mark = 10; // Corners offset
+  const tall = about.portrait.src.height / about.portrait.src.width;
+  const pad = (2 * mark * (cos + sin)).toFixed(2);
+  const perWidth = (cos + sin * tall).toFixed(4);
+  const perHeight = (sin + cos * tall).toFixed(4);
+  return `min(calc((100% - ${pad}px) / ${perWidth}), calc((100svh - var(--nav-h) - 4rem - ${pad}px) / ${perHeight}))`;
+})();
 
 export function About() {
   const scope = useRef<HTMLElement>(null);
@@ -51,7 +73,7 @@ export function About() {
   );
 
   return (
-    <section id="about" ref={scope} data-tone="dark" className="scroll-mt-nav overflow-x-clip py-section">
+    <section id="about" ref={scope} data-tone="dark" className="overflow-x-clip py-section">
       <Container>
         <div className="grid grid-cols-1 gap-x-6 gap-y-12 md:grid-cols-12 md:gap-y-16">
           <h2 className="font-display text-display uppercase md:col-span-6 md:col-start-7 md:row-start-1">
@@ -59,10 +81,13 @@ export function About() {
           </h2>
 
           <div className="md:col-span-5 md:col-start-1 md:row-span-2 md:row-start-1">
-            <div className="md:sticky md:top-32">
+            <div className="md:sticky md:top-[calc(var(--nav-h)+2rem)]">
               <div
-                className="relative rotate-[-3deg]"
-                style={{ aspectRatio: `${about.portrait.src.width} / ${about.portrait.src.height}` }}
+                className="relative mx-auto rotate-[-3deg]"
+                style={{
+                  aspectRatio: `${about.portrait.src.width} / ${about.portrait.src.height}`,
+                  width: fit,
+                }}
               >
                 <Image
                   src={about.portrait.src}

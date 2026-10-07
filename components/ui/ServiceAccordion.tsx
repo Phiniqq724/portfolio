@@ -1,17 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
-  AnimatePresence,
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useSpring,
-} from "motion/react";
-import {
+  useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
+  type FocusEvent,
   type KeyboardEvent,
+  type MouseEvent,
   type PointerEvent,
 } from "react";
 import { Corners } from "@/components/ui/Corners";
@@ -25,7 +23,10 @@ type Service = {
 };
 
 const EASE = [0.16, 1, 0.3, 1] as const;
-const SPRING = { stiffness: 300, damping: 30 };
+const DURATION = 0.45;
+// How long the pointer has to rest on a row before it opens, so a quick
+// sweep across the list opens only the row it stops on.
+const INTENT_MS = 100;
 const FINE_POINTER = "(hover: hover) and (pointer: fine)";
 const NAV_KEYS = new Set(["ArrowDown", "ArrowUp", "Home", "End"]);
 
@@ -39,58 +40,80 @@ const readFinePointerOnServer = () => false;
 
 /**
  * True only on devices with a hovering, precise pointer. False on the server,
- * during hydration, and on touch, so the hover preview never mounts there.
+ * during hydration, and on touch, so hover never opens rows there.
  */
 function useFinePointer() {
   return useSyncExternalStore(subscribeFinePointer, readFinePointer, readFinePointerOnServer);
 }
 
 /**
- * Motion tree for the What I do section. Two toys:
- * 1. Accordion. One row open at a time, the first open on load. Header is a
- *    native button (Enter and Space work), arrows and Home/End move between
- *    headers. Body height animates from 0 to auto through AnimatePresence.
- * 2. Hover preview. On pointer devices, hovering a closed row shows its
- *    preview image in a 240x180 tile that follows the cursor on a spring.
- *    Position lives in motion values, never in React state. Only which row
- *    is hovered is state, and it bails out when unchanged.
- * Mobile: same rows stacked in one column, no preview.
+ * Motion tree for the What I do section: a compact list where one row is
+ * open at a time, the first on load (nbnzia's services list, made ours by
+ * the lime mark and the crop marks).
+ * - Pointer devices: resting on a row for 100ms opens it, and leaving the
+ *   list keeps the last one open. Only real pointer movement counts, so rows
+ *   sliding under a still cursor never open anything. A click opens too.
+ * - Touch: a tap opens a row, a tap on the open row closes it.
+ * - Keyboard: the header is a native disclosure button (aria-expanded,
+ *   aria-controls). Keyboard focus opens its row, so Tab and the arrows
+ *   browse like hover; arrows and Home/End move between headers, Enter and
+ *   Space still toggle.
+ * The body's height animates from 0 to auto. At md+ the row's image unrolls
+ * on the right inside the row, a 4:3 crop with outside crop marks, top down
+ * on the same 0.45s curve as the height, so it never pokes past the row.
+ * The open title wears the section's only lime: a highlighter mark (ink on
+ * accent) that sweeps in over 420ms. Reduced motion: all of it is instant.
+ * Below md: no image, a plus sign that turns into a cross marks the open row.
  */
 export function ServiceAccordion({ services }: { services: readonly Service[] }) {
   const [open, setOpen] = useState<number | null>(0);
-  const [hoverIndex, setHoverIndex] = useState(0);
-  const [hovering, setHovering] = useState(false);
   const finePointer = useFinePointer();
   const reduce = useReducedMotion();
-  const previewEnabled = finePointer && !reduce;
-  const previewVisible = previewEnabled && hovering && hoverIndex !== open;
 
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const previewX = useSpring(x, SPRING);
-  const previewY = useSpring(y, SPRING);
+  const timer = useRef<number | undefined>(undefined);
+  const pending = useRef<number | null>(null);
+  const lastPoint = useRef({ x: -1, y: -1 });
 
-  const onPointerEnter = (event: PointerEvent<HTMLDivElement>) => {
-    // Land on the cursor at entry so the tile never flies in from where it was last seen.
-    x.jump(event.clientX);
-    y.jump(event.clientY);
-    previewX.jump(event.clientX);
-    previewY.jump(event.clientY);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  const cancelIntent = () => {
+    window.clearTimeout(timer.current);
+    pending.current = null;
   };
 
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-    x.set(event.clientX);
-    y.set(event.clientY);
+    if (event.pointerType === "touch") return;
+    // Browsers replay hover after layout changes with the same coordinates.
+    // Ignoring those keeps an opening row from opening the one it pushed
+    // under the cursor.
+    const { clientX: x, clientY: y } = event;
+    if (x === lastPoint.current.x && y === lastPoint.current.y) return;
+    lastPoint.current = { x, y };
+
     const row = (event.target as Element).closest<HTMLElement>("[data-row]");
-    if (row) {
-      setHoverIndex(Number(row.dataset.row));
-      setHovering(true);
-    } else {
-      setHovering(false);
-    }
+    if (!row) return;
+    const next = Number(row.dataset.row);
+    if (next === pending.current) return;
+    cancelIntent();
+    pending.current = next;
+    timer.current = window.setTimeout(() => {
+      pending.current = null;
+      setOpen(next);
+    }, INTENT_MS);
   };
 
-  const onPointerLeave = () => setHovering(false);
+  const onFocus = (event: FocusEvent<HTMLButtonElement>, i: number) => {
+    // Keyboard focus only. A tap focuses the button too, and its click
+    // decides on its own.
+    if (event.currentTarget.matches(":focus-visible")) setOpen(i);
+  };
+
+  const onClick = (event: MouseEvent<HTMLButtonElement>, i: number) => {
+    // Hover already opened this row on pointer devices, so a mouse click
+    // there never closes it. Taps, and Enter or Space (detail 0), toggle.
+    const toggles = !finePointer || event.detail === 0;
+    setOpen((current) => (current === i && toggles ? null : i));
+  };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!NAV_KEYS.has(event.key)) return;
@@ -109,14 +132,20 @@ export function ServiceAccordion({ services }: { services: readonly Service[] })
     buttons[next].focus();
   };
 
+  // The image follows the row's height on the same curve. On open it waits
+  // two frames, because the body only starts growing once it has mounted.
+  const imageTransition = (isOpen: boolean) =>
+    reduce ? { duration: 0 } : { duration: DURATION, ease: EASE, delay: isOpen ? 0.035 : 0 };
   const last = services.length - 1;
 
   return (
+    // The list is a size container so the image width (--tile-w) and the
+    // room the open row keeps for it come from the same number.
     <div
       onKeyDown={onKeyDown}
-      onPointerEnter={previewEnabled ? onPointerEnter : undefined}
-      onPointerMove={previewEnabled ? onPointerMove : undefined}
-      onPointerLeave={previewEnabled ? onPointerLeave : undefined}
+      onPointerMove={finePointer ? onPointerMove : undefined}
+      onPointerLeave={finePointer ? cancelIntent : undefined}
+      className="@container [--tile-w:min(24cqw,22.5rem)]"
     >
       {services.map((service, i) => {
         const isOpen = open === i;
@@ -127,22 +156,46 @@ export function ServiceAccordion({ services }: { services: readonly Service[] })
           <div
             key={service.index}
             data-row={i}
-            className={`border-t border-line ${i === last ? "border-b" : ""}`}
+            className={`relative border-t border-line ${i === last ? "border-b" : ""}`}
           >
             <h3>
+              {/*
+                < md: index, title, plus; 20px rows. Below 400px the index and
+                plus columns and the gaps shrink, so the longest word
+                ("development") still fits its column on a 320px phone.
+                md+: index and title in a 96px row, the plus gives way to the
+                image, and the title stops short of the image column.
+              */}
               <button
                 type="button"
                 id={buttonId}
                 aria-expanded={isOpen}
                 aria-controls={panelId}
-                onClick={() => setOpen(isOpen ? null : i)}
-                className="group grid w-full grid-cols-[3rem_1fr_2rem] items-center gap-x-6 py-6 text-left md:grid-cols-[6rem_1fr_3rem] md:py-8"
+                onClick={(event) => onClick(event, i)}
+                onFocus={(event) => onFocus(event, i)}
+                className="group grid w-full grid-cols-[2.25rem_1fr_1.25rem] items-baseline gap-x-3 py-5 text-left min-[400px]:grid-cols-[3rem_1fr_2rem] min-[400px]:gap-x-6 md:min-h-24 md:grid-cols-[6rem_1fr] md:content-center md:py-0 md:pr-[calc(var(--tile-w)+2rem)]"
               >
                 <span className="index">[{service.index}]</span>
-                <span className="font-display text-h2 transition-transform duration-500 ease-out-expo group-hover:translate-x-2">
-                  {service.title}
+                <span className="font-display text-h3 transition-transform duration-500 ease-out-expo group-hover:translate-x-2">
+                  {/* Highlighter mark. The single-color linear-gradient is a solid
+                      lime fill, not a gradient: it exists so background-size can
+                      sweep it in from the left on open and out to the right on
+                      close (position flips instantly at full or zero width, so the
+                      flip never shows). Clone repaints it per line when the title
+                      wraps on phones; 1em tall and centered, it fills exactly one
+                      line box, so wrapped lines meet without overlapping. The
+                      negative margin keeps the text in place. */}
+                  <span
+                    className={`-mx-[0.12em] px-[0.12em] text-fg [-webkit-box-decoration-break:clone] [background-image:linear-gradient(var(--accent),var(--accent))] [background-repeat:no-repeat] [box-decoration-break:clone] motion-safe:transition-[background-size] motion-safe:duration-[420ms] motion-safe:ease-out-expo ${
+                      isOpen
+                        ? "[background-position:left_center] [background-size:100%_1em]"
+                        : "[background-position:right_center] [background-size:0%_1em]"
+                    }`}
+                  >
+                    {service.title}
+                  </span>
                 </span>
-                <span className="justify-self-end transition-transform duration-200 ease-out-expo group-active:scale-90">
+                <span className="self-center justify-self-end transition-transform duration-200 ease-out-expo group-active:scale-90 md:hidden">
                   <motion.span
                     aria-hidden
                     className="relative block h-4 w-4"
@@ -168,60 +221,86 @@ export function ServiceAccordion({ services }: { services: readonly Service[] })
                     transition={
                       reduce
                         ? { duration: 0 }
-                        : { height: { duration: 0.5, ease: EASE }, opacity: { duration: 0.3 } }
+                        : { height: { duration: DURATION, ease: EASE }, opacity: { duration: 0.25 } }
                     }
                     className="overflow-hidden"
                   >
-                    {/* < md: copy then tags stacked. md+: 12-col, copy in 3-8, tags in 9-12. */}
-                    <div className="grid grid-cols-1 gap-y-6 pb-8 md:grid-cols-12 md:gap-x-6 md:gap-y-0">
-                      <p className="max-w-[48ch] text-fg md:col-span-6 md:col-start-3">{service.body}</p>
-                      <ul className="md:col-span-4">
-                        {service.tags.map((tag) => (
-                          <li key={tag} className="border-t border-line py-2 text-fg-2">
-                            {tag}
-                          </li>
-                        ))}
-                      </ul>
+                    {/*
+                      Copy sits under the title, past the index column. md+:
+                      it stops before the image column, and the open row is
+                      held tall enough (min-height) for the image plus 24px
+                      above and below it: 6rem header + this = 1.5rem + the
+                      image's height + 1.5rem.
+                    */}
+                    <div className="pb-6 pl-[3rem] min-[400px]:pl-[4.5rem] md:min-h-[calc(var(--tile-w)_*_0.75_-_3rem)] md:pb-8 md:pl-[7.5rem] md:pr-[calc(var(--tile-w)+2rem)]">
+                      <p className="max-w-[56ch] text-fg">{service.body}</p>
+                      {/* Every tag leads with a hairline spacer. The list is
+                          pulled left by one spacer and clipped, so the spacer
+                          that starts each line (the first, and any after a wrap
+                          on phones) falls outside and never shows. */}
+                      <div className="mt-3 overflow-hidden">
+                        <ul className="-ml-[calc(0.75rem+1px)] flex flex-wrap text-fg-2">
+                          {service.tags.map((tag) => (
+                            <li
+                              key={tag}
+                              className="flex items-center gap-x-3 pr-3 before:h-3 before:w-px before:bg-line"
+                            >
+                              {tag}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
+
+            {/*
+              md+ only (hidden below md). Decorative, the copy says it all.
+              Every row keeps its image mounted, so a first hover never shows
+              an empty box. The wrapper does not clip, so the outside crop
+              marks sit on the canvas around the photo.
+            */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute right-0 top-6 hidden aspect-[4/3] w-[var(--tile-w)] md:block"
+            >
+              <motion.div
+                className="absolute inset-0"
+                initial={false}
+                animate={{ clipPath: isOpen ? "inset(0% 0% 0% 0%)" : "inset(0% 0% 100% 0%)" }}
+                transition={imageTransition(isOpen)}
+              >
+                <motion.div
+                  className="absolute inset-0"
+                  initial={false}
+                  animate={{ scale: isOpen ? 1 : 1.12 }}
+                  transition={imageTransition(isOpen)}
+                >
+                  <Image
+                    src={service.preview}
+                    alt=""
+                    fill
+                    sizes="(min-width: 768px) 360px, 1px"
+                    className="object-cover"
+                  />
+                </motion.div>
+              </motion.div>
+              <motion.span
+                className="absolute inset-0"
+                initial={false}
+                animate={{ opacity: isOpen ? 1 : 0 }}
+                transition={
+                  reduce ? { duration: 0 } : { duration: 0.2, delay: isOpen ? DURATION * 0.6 : 0 }
+                }
+              >
+                <Corners size={10} offset={6} />
+              </motion.span>
+            </div>
           </div>
         );
       })}
-
-      {previewEnabled && (
-        <motion.div
-          aria-hidden
-          className="pointer-events-none fixed left-0 top-0 aspect-[4/3] w-[240px] overflow-hidden"
-          style={{ x: previewX, y: previewY, translate: "-50% -50%" }}
-          initial={false}
-          animate={{
-            opacity: previewVisible ? 1 : 0,
-            scale: previewVisible ? 1 : 0.92,
-            // Motion flips visibility after the fade out and before the fade in,
-            // so the hidden tile is never painted and never counts as LCP.
-            visibility: previewVisible ? "visible" : "hidden",
-          }}
-          transition={{ duration: 0.3, ease: EASE }}
-        >
-          {/* All four tiles stay mounted so a first hover never shows an empty box. */}
-          {services.map((service, i) => (
-            <Image
-              key={service.index}
-              src={service.preview}
-              alt=""
-              fill
-              sizes="240px"
-              className={`object-cover transition-opacity duration-300 ${
-                i === hoverIndex ? "opacity-100" : "opacity-0"
-              }`}
-            />
-          ))}
-          <Corners size={12} />
-        </motion.div>
-      )}
     </div>
   );
 }

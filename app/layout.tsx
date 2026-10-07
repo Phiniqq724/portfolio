@@ -95,7 +95,8 @@ export const viewport: Viewport = {
   schema Google documents for personal and profile sites. Every fact here is
   also visible on the page or in the resume.
 */
-const current = experience[0];
+// Experience runs oldest first, so the current role is the last entry.
+const current = experience[experience.length - 1];
 const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
@@ -124,7 +125,7 @@ const jsonLd = {
       familyName: "Widiatmoko",
       alternateName: [site.fullName, "Sandy", "Sndyy"],
       url: site.url,
-      image: `${site.url}/images/hero-tile.jpg`,
+      image: `${site.url}/images/portrait.jpg`,
       email: `mailto:${site.email}`,
       jobTitle: current.role,
       worksFor: { "@type": "Organization", name: current.company, url: current.href },

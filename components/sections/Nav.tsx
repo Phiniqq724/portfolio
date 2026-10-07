@@ -12,7 +12,7 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 
 /**
  * Fixed nav. Text blends with whatever section is under it (difference), so
- * one nav reads on light, dark and lime. Always visible, so the way around
+ * one nav reads on light, dark and over the hero photo; over lime it turns ink. Always visible, so the way around
  * the page never disappears. Mobile: full-screen dark overlay with giant links.
  */
 export function Nav() {
@@ -23,10 +23,10 @@ export function Nav() {
   const lenis = useLenis();
 
   /*
-    Is an accent-toned section under the bar? The nav normally inverts
-    whatever is behind it (mix-blend-mode: difference), which reads on light
-    and dark but turns teal over the rose red accent. Over accent sections it
-    drops the blend and uses plain ink, which passes AA on lime and red.
+    Is an accent-toned surface under the bar (the lime Evidence card)? The
+    nav normally inverts whatever is behind it (mix-blend-mode: difference),
+    which reads on light and dark but turns lime into a muddy blue. Over
+    accent surfaces it drops the blend and uses plain ink, which is AA on lime.
     An observer whose root is shrunk to the nav strip reports the overlap,
     so there is no scroll listener.
   */
@@ -103,8 +103,10 @@ export function Nav() {
   };
 
   // Overlay links: Lenis is stopped while the menu is open, so restart it and
-  // scroll ourselves. Sections carry scroll-margin-top for the nav height and
-  // Lenis honors it. Without Lenis (reduced motion) fall back to a native jump.
+  // scroll ourselves. Anchors land on the section's top edge: every target's
+  // own top padding is taller than the nav, so only that section's empty
+  // padding sits under the bar. Without Lenis (reduced motion) fall back to a
+  // native jump.
   const goTo = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault();
     setOpen(false);
@@ -127,7 +129,7 @@ export function Nav() {
       </a>
 
       <header
-        className={`fixed inset-x-0 top-0 z-[60] ${onAccent ? "text-ink" : "text-canvas mix-blend-difference"}`}
+        className={`hint-plain fixed inset-x-0 top-0 z-[60] ${onAccent ? "text-ink" : "text-canvas mix-blend-difference"}`}
       >
         <Container className="flex h-nav items-center justify-between">
           <a
@@ -163,7 +165,7 @@ export function Nav() {
 
           <div className="flex items-center gap-3">
             <a
-              href={site.contact.href}
+              href={`mailto:${site.email}`}
               className="group relative hidden h-10 items-center border border-current px-4 text-sm transition-transform active:scale-[0.98] md:inline-flex"
             >
               {/*

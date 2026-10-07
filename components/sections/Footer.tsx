@@ -4,12 +4,18 @@ import { Reveal } from "@/components/ui/Reveal";
 import { footer, site } from "@/content/site";
 
 /*
-  Dark footer, id="contact", the target of the nav's "Let's Talk". Motion
-  only: the three blocks enter with the shared Reveal primitive. Two toys:
+  Dark footer, id="contact". The nav's "Let's Talk" opens a mail directly;
+  this email link is the same intent at the end of the page. Motion
+  only: the blocks enter with the shared Reveal primitive. Two toys:
   pressing the headline rolls LET'S TALK. into LET'S LARP. (FooterHeadline),
-  and the email on hover or focus the address rolls up and an accent copy rolls in from
+  and on hover or focus the email rolls up while a lime copy rolls in from
   below (two stacked spans in an overflow-hidden wrapper, transform only; the
-  global reduced-motion rule makes it instant).
+  global reduced-motion rule makes it instant), and its arrow nudges up-right.
+
+  Headline and email are one block: from md the headline takes cols 1-7 and
+  the email with its note sits in cols 8-12, bottom-aligned with TALK., so
+  the address reads as the answer to the headline rather than a second
+  statement. Below 768px the email follows the headline closely in one column.
 
   Bottom row: 2 columns under 768px (nav | socials, then location |
   copyright), 12 columns from md (3 / 3 / 3 / 3).
@@ -21,34 +27,44 @@ export function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer id="contact" data-tone="dark" className="scroll-mt-nav border-t border-line py-section">
+    <footer id="contact" data-tone="dark" className="border-t border-line py-section">
       <Container>
-        <Reveal as="div">
-          <FooterHeadline />
-        </Reveal>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-12 md:items-end">
+          <Reveal as="div" className="md:col-span-7">
+            <FooterHeadline />
+          </Reveal>
 
-        <Reveal as="p" index={1} className="mt-16 md:mt-24">
-          <a
-            href={`mailto:${site.email}`}
-            className="group inline-block max-w-full font-display text-[clamp(1.75rem,8.5vw,3rem)] leading-none font-semibold tracking-[-0.025em] md:text-display md:leading-none"
-          >
-            <span className="relative block overflow-hidden">
-              <span className={`${ROLL} group-hover:-translate-y-full group-focus-visible:-translate-y-full`}>
-                {site.email}
-              </span>
-              <span
-                aria-hidden
-                className={`${ROLL} absolute inset-0 translate-y-full text-accent group-hover:translate-y-0 group-focus-visible:translate-y-0`}
+          <div className="md:col-span-5 md:col-start-8 md:pb-[0.4rem]">
+            <Reveal as="p" index={1}>
+              <a
+                href={`mailto:${site.email}`}
+                className="group inline-flex max-w-full items-start gap-[0.3em] font-display text-[clamp(1.75rem,7vw,2.5rem)] leading-none font-semibold tracking-[-0.02em] md:text-h3 md:leading-none md:font-semibold"
               >
-                {site.email}
-              </span>
-            </span>
-          </a>
-        </Reveal>
+                <span className="relative block overflow-hidden">
+                  <span className={`${ROLL} group-hover:-translate-y-full group-focus-visible:-translate-y-full`}>
+                    {site.email}
+                  </span>
+                  <span
+                    aria-hidden
+                    className={`${ROLL} absolute inset-0 translate-y-full text-accent group-hover:translate-y-0 group-focus-visible:translate-y-0`}
+                  >
+                    {site.email}
+                  </span>
+                </span>
+                <span
+                  aria-hidden
+                  className="py-[0.12em] text-[0.7em] transition-[color,translate] duration-500 ease-out-expo group-hover:translate-x-[0.12em] group-hover:-translate-y-[0.12em] group-hover:text-accent group-focus-visible:text-accent"
+                >
+                  &#8599;
+                </span>
+              </a>
+            </Reveal>
 
-        <Reveal as="p" index={2} className="mt-6 max-w-[44ch] text-fg-2">
-          {footer.note}
-        </Reveal>
+            <Reveal as="p" index={2} className="mt-4 max-w-[36ch] text-fg-2">
+              {footer.note}
+            </Reveal>
+          </div>
+        </div>
 
         <div className="mt-24 grid grid-cols-2 gap-x-6 gap-y-10 border-t border-line pt-8 text-sm md:mt-32 md:grid-cols-12">
           <nav aria-label="Footer" className="md:col-span-3">

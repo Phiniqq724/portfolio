@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useRef } from "react";
+import { useLenis } from "lenis/react";
+import { useRef, type CSSProperties, type FocusEvent } from "react";
 import { Container } from "@/components/ui/Container";
 import { Corners } from "@/components/ui/Corners";
 import { evidenceHeading, projects } from "@/content/site";
@@ -12,81 +13,161 @@ type Project = (typeof projects)[number];
 /**
  * Fixed card colors. DESIGN.md allows them here and nowhere else. Every pair
  * is on the verified AA list, so nothing inside a card uses the tone tokens.
+ * The surface and the text color are split: the surface belongs to the inner
+ * layer that tips back, the text color to the card itself, so the focus ring
+ * (currentColor) always contrasts with the card it sits on. Cards are not
+ * data-tone, so each also names its "Visit project" hover hint: lime text on
+ * canvas-text cards, a lime band behind ink text, plain on the lime card.
  */
-const TONE: Record<Project["tone"], string> = {
-  cobalt: "bg-cobalt text-canvas",
-  peach: "bg-peach text-ink",
-  dark: "bg-ink text-canvas",
-  accent: "bg-accent text-ink",
-  plum: "bg-plum text-canvas",
-  sand: "bg-sand text-ink",
+const TONE: Record<Project["tone"], { bg: string; fg: string }> = {
+  cobalt: { bg: "bg-cobalt", fg: "text-canvas hint-dark" },
+  peach: { bg: "bg-peach", fg: "text-ink hint-light" },
+  dark: { bg: "bg-ink", fg: "text-canvas hint-dark" },
+  accent: { bg: "bg-accent", fg: "text-ink hint-plain" },
+  plum: { bg: "bg-plum", fg: "text-canvas hint-dark" },
+  sand: { bg: "bg-sand", fg: "text-ink hint-light" },
 };
 
 /**
- * Evidence. GSAP scene, light tone. The title sits left and static, like
- * What I do and Experience. The section clips on the x axis only: overflow
- * hidden would make the section a scroll container and the sticky cards
- * would stop sticking to the viewport.
+ * How a covered card falls back. Every card rolls its own fall on each page
+ * load, so the stack never repeats a pattern: it drops to the left or the
+ * right, pivots near that top corner, swings toward that side (rotationY and
+ * a sideways drift) and turns a few degrees the same way. Scrubbed from
+ * flat, ease none. The section clips x, so a drift never adds a scrollbar.
+ * Pure coin flips can land five lefts in a row, which reads as a rule
+ * again, so a side never repeats more than twice: `previous` is the sides
+ * rolled so far.
+ */
+function rollFall(previous: number[]) {
+  const [a, b] = previous.slice(-2);
+  const side = a !== undefined && a === b ? -a : Math.random() < 0.5 ? -1 : 1;
+  previous.push(side);
+  const r = gsap.utils.random;
+  return {
+    origin: `${side < 0 ? r(10, 30) : r(70, 90)}% 5.5rem`,
+    to: {
+      rotationX: r(20, 34),
+      rotationY: side * r(6, 16),
+      rotation: side * r(2, 8),
+      xPercent: side * r(3, 9),
+      scale: r(0.74, 0.84),
+    },
+  };
+}
+/** Ink veil at the end of the fall, so the card reads as sinking into shadow. */
+const VEIL = 0.5;
+/**
+ * How long a landed card holds flat and still, in screens of scroll, before
+ * the next one starts to rise. Each card after the first takes one screen to
+ * rise, so card i lands (i * STEP) screens into the stack.
+ */
+const HOLD = 0.25;
+const STEP = 1 + HOLD;
+
+/**
+ * Evidence. GSAP scene, light tone. The title sits left and static in the
+ * Container, like What I do and Experience. The cards below it leave the
+ * Container and run edge to edge. The section clips on the x axis only:
+ * overflow hidden would make the section a scroll container and the sticky
+ * stage would stop sticking to the viewport.
  */
 export function Evidence() {
   return (
-    <section id="evidence" data-tone="light" className="scroll-mt-nav overflow-x-clip py-section">
+    <section id="evidence" data-tone="light" className="overflow-x-clip pt-section">
       <Container>
         <h2 className="font-display text-display uppercase">{evidenceHeading}</h2>
-        <EvidenceStack projects={projects} />
       </Container>
+      <EvidenceStack projects={projects} />
     </section>
   );
 }
 
 /**
- * The toy: a sticky stack. At md+ every card is position sticky under the
- * nav, so the natural scroll does the pinning. For each card except the
- * last, a scrub tween driven by the NEXT card shrinks it to 0.94 and dims it
- * to 60% as that next card slides up over it. The dim is a canvas-colored
- * veil scrubbed to 0.4 rather than element opacity: same blend, but opaque,
- * so the titles of earlier cards never ghost through the receding one.
- * Below md there is no sticky and no tween: cards stack with a gap, image
- * above text. Under reduced motion the tween is skipped and only the native
- * sticky stacking remains.
+ * The toy: cards that fall behind. At md+ the stack is one sticky stage, one
+ * full screen (100vw by 100svh), inside a wrapper tall enough to scroll the
+ * whole sequence: the stage plus HOLD screens per card plus one screen per
+ * rise. All cards sit absolutely on the stage, later cards above earlier ones
+ * by DOM order. The fixed nav overlays the top of every card, so the content's
+ * top padding starts below --nav-h.
  *
- * The wrapper is a flex column on purpose. A grid item's containing block is
- * its own grid area, which would trap each sticky card inside a row exactly
- * its own height.
+ * One timeline, scrubbed over the wrapper's scroll, plays the sequence in
+ * screens: card 0 holds; card 1 rises (yPercent 100 to 0) while card 0's
+ * inner layer falls back to a random side (see rollFall) under a 3600px
+ * perspective, with an ink veil to 0.5 inside the layer; the moment card 1
+ * covers it, card 0 goes to opacity 0; card 1 holds; and so on. The last
+ * card does not tip; it holds, then the wrapper ends and the stage scrolls
+ * away into Certificates. So at most two cards are ever drawn, the one
+ * arriving and the one falling behind it, and scrolling back reverses it all.
+ * Hidden cards keep visibility, so Tab still reaches every card (see
+ * onCardFocus). The veil is opaque color faded with opacity, never element
+ * opacity on a card that is still on screen, so nothing ghosts through. Each
+ * card flattens its own 3D. The stage clips (overflow clip, which cannot be
+ * scrolled by focus), so cards waiting below it never show or take pointers.
+ * Before hydration, cards after the first wait below the stage in CSS, so a
+ * reload mid-stack never flashes the last card.
+ *
+ * The wrapper height is CSS, not a GSAP pin, so the document is its final
+ * height from the first paint and the scenes below (Certificates,
+ * Experience) never wait on a pin spacer.
+ *
+ * Below md: no stage, no 3D. Cards stack edge to edge with no gap, image
+ * above text. Under reduced motion at md+ there is no stage either: the
+ * cards are plain full-screen blocks that scroll by in order, flat, with no
+ * hold and no veil, so they can never pile up.
  */
 function EvidenceStack({ projects }: { projects: readonly Project[] }) {
   const scope = useRef<HTMLDivElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const lenis = useLenis();
 
   useGSAP(
     () => {
       const mm = gsap.matchMedia();
 
       mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
-        const cards = gsap.utils.toArray<HTMLElement>(".stack-card", scope.current ?? undefined);
-        // Where a card stops is its own sticky offset. Read it from the CSS so
-        // the tween end and the layout share one number.
-        const stickyTop = cards.length ? parseFloat(getComputedStyle(cards[0]).top) || 0 : 0;
-
-        cards.forEach((card, i) => {
-          const next = cards[i + 1];
-          if (!next) return;
-          const veil = card.querySelector<HTMLElement>("[data-veil]");
-          const tl = gsap.timeline({
-            scrollTrigger: {
-              trigger: next,
-              start: "top bottom",
-              end: `top top+=${stickyTop}`,
-              scrub: true,
-            },
-          });
-          tl.to(card, { scale: 0.94, transformOrigin: "center top", ease: "none" }, 0);
-          if (veil) tl.to(veil, { opacity: 0.4, ease: "none" }, 0);
+        const wrap = scope.current;
+        if (!wrap) return;
+        const cards = gsap.utils.toArray<HTMLElement>(".stack-card", wrap);
+        // Positions are in screens: the timeline spans the wrapper's scroll,
+        // which is exactly (cards * HOLD + cards - 1) screens long.
+        const tl = gsap.timeline({
+          defaults: { ease: "none" },
+          scrollTrigger: {
+            trigger: wrap,
+            start: "top top",
+            end: "bottom bottom",
+            scrub: true,
+            invalidateOnRefresh: true,
+          },
         });
+
+        const sides: number[] = [];
+        cards.forEach((card, i) => {
+          if (i === 0) return;
+          const landed = i * STEP;
+          const rise = landed - 1;
+          // y: 0 drops the CSS pre-hydration offset GSAP parses on first touch.
+          tl.fromTo(card, { y: 0, yPercent: 100 }, { yPercent: 0, duration: 1 }, rise);
+
+          const prev = cards[i - 1];
+          const layer = prev.querySelector<HTMLElement>("[data-fall]");
+          const veil = prev.querySelector<HTMLElement>("[data-veil]");
+          if (layer) {
+            const fall = rollFall(sides);
+            gsap.set(layer, { transformOrigin: fall.origin });
+            tl.to(layer, { ...fall.to, duration: 1 }, rise);
+          }
+          if (veil) tl.to(veil, { opacity: VEIL, duration: 1 }, rise);
+          // Fully covered: gone, so tipped cards never pile up behind.
+          tl.set(prev, { opacity: 0 }, landed);
+        });
+        // The last card's hold.
+        tl.set({}, {}, (cards.length - 1) * STEP + HOLD);
       });
 
-      // Trigger positions depend on card heights, and those depend on Clash
-      // Display being in. ScrollTrigger already refreshes itself on window
-      // load; the font swap is the case it cannot see.
+      // Trigger positions depend on the stack's offset, which depends on
+      // Clash Display being in. ScrollTrigger already refreshes itself on
+      // window load; the font swap is the case it cannot see.
       ScrollTrigger.refresh();
       let live = true;
       document.fonts.ready.then(() => {
@@ -99,85 +180,170 @@ function EvidenceStack({ projects }: { projects: readonly Project[] }) {
     { scope },
   );
 
+  /*
+    Shift+Tab can focus a card that is hidden on the stage (covered, or
+    waiting below it), where the browser cannot bring it into view. At md+,
+    scroll to the focused card's own place in the sequence instead: a
+    quarter screen into its hold, so the card and its focus ring are on
+    screen and flat. Under reduced motion the place is simply its block.
+  */
+  const onCardFocus = (i: number) => (event: FocusEvent<HTMLElement>) => {
+    const wrap = scope.current;
+    if (!wrap || !window.matchMedia("(min-width: 768px)").matches) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const top = wrap.getBoundingClientRect().top + window.scrollY;
+    const screen = stage.current?.offsetHeight ?? window.innerHeight;
+    const y = reduced
+      ? top + i * event.currentTarget.offsetHeight
+      : top + (i * STEP + HOLD / 2) * screen;
+    if (Math.abs(window.scrollY - y) < 2) return;
+    if (lenis) lenis.scrollTo(y, reduced ? { immediate: true } : { duration: 0.6 });
+    else window.scrollTo({ top: y });
+  };
+
+  const accentSlot = projects.findIndex((p) => p.tone === "accent");
+
   return (
-    <div ref={scope} className="relative mt-16 flex flex-col gap-y-6 md:mt-24">
-      {projects.map((project) => {
-        const Card = project.href ? "a" : "article";
-        const linkProps = project.href
-          ? {
-              href: project.href,
-              target: "_blank",
-              rel: "noreferrer",
-              "aria-label": `${project.title}, opens in a new tab`,
-            }
-          : {};
-        return (
-          <Card
-            key={project.index}
-            {...linkProps}
-            className={`stack-card group relative grid min-h-0 grid-cols-1 gap-6 p-8 md:sticky md:top-[var(--nav-h)] md:min-h-[78vh] md:grid-cols-12 md:grid-rows-[auto_1fr] md:p-12 ${TONE[project.tone]}`}
-          >
-            {/*
-              Image. Square, like the source mockups, so nothing is cropped.
-              First in flow below md; bottom-right in cols 8 to 12 at md+.
-              Width is also capped by the viewport height (minus nav, padding,
-              a two-line title, the meta lines and the row gap) so the whole
-              card fits under the nav while stuck.
-            */}
-            <div className="relative aspect-square w-full rotate-[2deg] md:col-span-5 md:col-start-8 md:row-start-2 md:w-[min(100%,calc(100vh-15vw-20rem))] md:self-end md:justify-self-end">
-              <div className="absolute inset-0 overflow-hidden">
-                <Image
-                  src={project.image}
-                  alt={`${project.title} preview`}
-                  fill
-                  sizes="(min-width: 768px) 36vw, 100vw"
-                  className="object-cover transition-transform duration-700 ease-out-expo motion-safe:group-hover:scale-[1.03]"
+    <div
+      ref={scope}
+      className="relative mt-16 md:mt-24 md:motion-safe:h-[var(--stack-h)]"
+      // The stage (one screen) plus a hold per card plus a rise per card after the first.
+      style={{ "--stack-h": `calc(${projects.length * STEP} * 100svh)` } as CSSProperties}
+    >
+      {accentSlot >= 0 && <NavProbe slot={accentSlot} />}
+      <div
+        ref={stage}
+        className="flex flex-col md:motion-safe:sticky md:motion-safe:top-0 md:motion-safe:block md:motion-safe:h-svh md:motion-safe:overflow-clip"
+      >
+        {projects.map((project, i) => {
+          const Card = project.href ? "a" : "article";
+          const linkProps = project.href
+            ? {
+                href: project.href,
+                target: "_blank",
+                rel: "noreferrer",
+                "aria-label": `${project.title}, opens in a new tab`,
+              }
+            : {};
+          const tone = TONE[project.tone];
+          const accent = project.tone === "accent";
+          return (
+            <Card
+              key={project.index}
+              {...linkProps}
+              onFocus={project.href ? onCardFocus(i) : undefined}
+              className={`stack-card group relative block focus-visible:outline-current focus-visible:-outline-offset-8 md:h-svh md:motion-safe:absolute md:motion-safe:inset-0 md:motion-safe:[perspective:3600px] ${i > 0 ? "md:motion-safe:[transform:translateY(100%)]" : ""} ${tone.fg}`}
+            >
+              {/* Nav probe for the lime card where it is a plain block: below md, and under reduced motion. See NavProbe. */}
+              {accent && (
+                <span
+                  aria-hidden
+                  data-tone="accent"
+                  className="pointer-events-none invisible absolute inset-0 md:motion-safe:hidden"
                 />
-              </div>
-              {/* Marks sit outside the photo, on the card color, so they show on every card. */}
-              <Corners size={14} offset={8} />
-            </div>
-
-            {/*
-              Title row. Title top-left, index top-right. Below md the index
-              moves above the title and the title drops to text-h2, because the
-              3rem floor of text-display is wider than a phone card.
-            */}
-            <div className="flex flex-col gap-4 md:col-span-12 md:row-start-1 md:flex-row md:items-start md:justify-between md:gap-6">
-              <div className="min-w-0">
-                <h3 className="font-display text-h2 uppercase text-balance md:text-display">{project.title}</h3>
-                <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-body tabular-nums opacity-90 md:gap-x-3">
-                  <span>{project.role}</span>
-                  <span aria-hidden className="hidden h-[0.8em] w-px bg-current opacity-40 md:block" />
-                  <span>{project.kind}</span>
-                  <span aria-hidden className="hidden h-[0.8em] w-px bg-current opacity-40 md:block" />
-                  <span>{project.partner}</span>
-                  <span aria-hidden className="hidden h-[0.8em] w-px bg-current opacity-40 md:block" />
-                  <span>{project.year}</span>
-                </p>
-              </div>
-              <p className="order-first shrink-0 font-display text-h3 tabular-nums md:order-none">({project.index})</p>
-            </div>
-
-            <div className="flex max-w-[44ch] flex-col gap-4 md:col-span-6 md:col-start-1 md:row-start-2 md:self-end">
-              <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm opacity-90" aria-label="Stack">
-                {project.stack.map((tech) => (
-                  <li key={tech}>{tech}</li>
-                ))}
-              </ul>
-              <p className="text-body">{project.summary}</p>
-              {project.href && (
-                <span className="text-sm font-medium">
-                  <span className="link-line group-hover:link-line-hover">Visit project</span>
-                </span>
               )}
-            </div>
 
-            {/* Dim veil, scrubbed by GSAP at md+. Out of the grid flow, above the content, inert. */}
-            <span aria-hidden data-veil className="pointer-events-none absolute inset-0 bg-canvas opacity-0" />
-          </Card>
-        );
-      })}
+              {/* The layer that falls back. It carries the card color, so the section canvas shows around it once it tips. */}
+              <div data-fall className={`relative h-full md:origin-[50%_5.5rem] ${tone.bg}`}>
+                <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col gap-6 px-gutter py-12 md:gap-8 md:pt-[calc(var(--nav-h)+1.5rem)] md:pb-10">
+                  {/*
+                    Title row. Title top-left, index top-right. Below md the
+                    index moves above the title and the title drops to
+                    text-h2, because the 3rem floor of text-display is wider
+                    than a phone card.
+                  */}
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
+                    <div className="min-w-0">
+                      <h3 className="font-display text-h2 uppercase text-balance md:text-display">{project.title}</h3>
+                      <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-body tabular-nums opacity-90 md:gap-x-3">
+                        <span>{project.role}</span>
+                        <span aria-hidden className="hidden h-[0.8em] w-px bg-current opacity-40 md:block" />
+                        <span>{project.kind}</span>
+                        <span aria-hidden className="hidden h-[0.8em] w-px bg-current opacity-40 md:block" />
+                        <span>{project.partner}</span>
+                        <span aria-hidden className="hidden h-[0.8em] w-px bg-current opacity-40 md:block" />
+                        <span>{project.year}</span>
+                      </p>
+                    </div>
+                    <p className="order-first shrink-0 font-display text-h3 tabular-nums md:order-none">
+                      ({project.index})
+                    </p>
+                  </div>
+
+                  {/*
+                    Row two fills the rest of the screen at md+: summary
+                    bottom-left in cols 1 to 6, image bottom-right in cols 7
+                    to 12. It is a size container, so the image can be capped
+                    by the height that is left (100cqh) as well as by its
+                    columns, and the whole card fits one screen down to
+                    1280x720. Below md the row dissolves (display contents)
+                    and the image moves first in the card's column.
+                  */}
+                  <div className="contents md:grid md:min-h-0 md:flex-1 md:grid-cols-12 md:items-end md:gap-x-6 md:[container-type:size]">
+                    <div className="flex max-w-[44ch] flex-col gap-4 md:col-span-6 md:col-start-1 md:row-start-1">
+                      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm opacity-90" aria-label="Stack">
+                        {project.stack.map((tech) => (
+                          <li key={tech}>{tech}</li>
+                        ))}
+                      </ul>
+                      <p className="text-body">{project.summary}</p>
+                      {project.href && (
+                        <span className="text-sm font-medium">
+                          <span className="link-line group-hover:link-line-hover">Visit project</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/*
+                      Image. Square, like the source mockups, so nothing is
+                      cropped. At md+ the cap leaves room for the 2deg tilt
+                      and the marks outside it; below md a small side inset
+                      keeps the tilted marks off the screen edge.
+                    */}
+                    <div className="relative order-first aspect-square rotate-[2deg] max-md:mx-3 md:order-none md:col-span-6 md:col-start-7 md:row-start-1 md:w-[min(100%,100cqh_-_2.5rem)] md:justify-self-end md:mb-3 md:mr-3">
+                      <div className="absolute inset-0 overflow-hidden">
+                        <Image
+                          src={project.image}
+                          alt={`${project.title} preview`}
+                          fill
+                          sizes="(min-width: 768px) 45vw, 100vw"
+                          className="object-cover transition-transform duration-700 ease-out-expo motion-safe:group-hover:scale-[1.03]"
+                        />
+                      </div>
+                      {/* Marks sit outside the photo, on the card color, so they show on every card. */}
+                      <Corners size={14} offset={8} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Shadow veil, scrubbed by GSAP at md+. Inside the falling layer so it tips with it; inert. */}
+                <span aria-hidden data-veil className="pointer-events-none absolute inset-0 bg-ink opacity-0" />
+              </div>
+            </Card>
+          );
+        })}
+      </div>
     </div>
+  );
+}
+
+/**
+ * Nav probe for the lime card on the md+ stage. The nav turns ink over any
+ * [data-tone="accent"] box under its strip, judged by geometry alone. The
+ * stage stays stuck under the nav through the whole sequence, so the card's
+ * own box would keep the nav ink over every card. This invisible box sits in
+ * the scrolling wrapper instead, over the stretch of scroll that belongs to
+ * the lime card: from where its top first meets the nav strip (it lands
+ * slot * STEP screens in) until the next card has landed over it, STEP
+ * screens later.
+ */
+function NavProbe({ slot }: { slot: number }) {
+  return (
+    <span
+      aria-hidden
+      data-tone="accent"
+      className="pointer-events-none invisible absolute inset-x-0 hidden md:motion-safe:block"
+      style={{ top: `calc(${slot * STEP} * 100svh)`, height: `calc(${STEP} * 100svh)` }}
+    />
   );
 }
