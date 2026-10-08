@@ -18,17 +18,20 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 export function Nav() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string | null>(null);
-  const [onAccent, setOnAccent] = useState(false);
+  // Plain color the bar takes over a surface that asks for one; null blends.
+  const [plain, setPlain] = useState<"ink" | "canvas" | null>(null);
   const larp = useLarp();
   const lenis = useLenis();
 
   /*
-    Is an accent-toned surface under the bar (the lime Evidence card)? The
-    nav normally inverts whatever is behind it (mix-blend-mode: difference),
-    which reads on light and dark but turns lime into a muddy blue. Over
-    accent surfaces it drops the blend and uses plain ink, which is AA on lime.
-    An observer whose root is shrunk to the nav strip reports the overlap,
-    so there is no scroll listener.
+    Is a colored surface under the bar? The nav normally inverts whatever is
+    behind it (mix-blend-mode: difference), which reads on canvas and ink but
+    turns colors odd (red to teal, lime to blue). Surfaces that need a plain
+    color say so: `data-nav="ink" | "canvas"` (the Evidence cards' probes,
+    each AA on its card), and any `data-tone="accent"` box means ink. Over
+    those the bar drops the blend and takes that color. An observer whose
+    root is shrunk to a line through the nav reports the overlap, so there
+    is no scroll listener.
   */
   useEffect(() => {
     let io: IntersectionObserver | null = null;
@@ -39,11 +42,19 @@ export function Nav() {
       io = new IntersectionObserver(
         (entries) => {
           entries.forEach((e) => (e.isIntersecting ? under.add(e.target) : under.delete(e.target)));
-          setOnAccent(under.size > 0);
+          let next: "ink" | "canvas" | null = null;
+          for (const el of under) {
+            const asked = (el as HTMLElement).dataset.nav;
+            next = asked === "canvas" ? "canvas" : "ink";
+            if (asked) break;
+          }
+          setPlain(next);
         },
-        { rootMargin: `0px 0px -${Math.max(0, window.innerHeight - navH)}px 0px` },
+        // The root is a 1px line through the middle of the bar, so exactly one
+        // surface decides even where two probes meet end to end.
+        { rootMargin: `-${Math.round(navH / 2)}px 0px -${Math.max(0, Math.round(window.innerHeight - navH / 2 - 1))}px 0px` },
       );
-      document.querySelectorAll('[data-tone="accent"]').forEach((el) => io!.observe(el));
+      document.querySelectorAll('[data-tone="accent"], [data-nav]').forEach((el) => io!.observe(el));
     };
     build();
     window.addEventListener("resize", build);
@@ -129,7 +140,7 @@ export function Nav() {
       </a>
 
       <header
-        className={`hint-plain fixed inset-x-0 top-0 z-[60] ${onAccent ? "text-ink" : "text-canvas mix-blend-difference"}`}
+        className={`hint-plain fixed inset-x-0 top-0 z-[60] ${plain === "ink" ? "text-ink" : plain === "canvas" ? "text-canvas" : "text-canvas mix-blend-difference"}`}
       >
         <Container className="flex h-nav items-center justify-between">
           <a

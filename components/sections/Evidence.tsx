@@ -11,21 +11,19 @@ import { gsap, ScrollTrigger, useGSAP } from "@/lib/gsap";
 type Project = (typeof projects)[number];
 
 /**
- * Fixed card colors. DESIGN.md allows them here and nowhere else. Every pair
- * is on the verified AA list, so nothing inside a card uses the tone tokens.
- * The surface and the text color are split: the surface belongs to the inner
- * layer that tips back, the text color to the card itself, so the focus ring
- * (currentColor) always contrasts with the card it sits on. Cards are not
- * data-tone, so each also names its "Visit project" hover hint: lime text on
- * canvas-text cards, a lime band behind ink text, plain on the lime card.
+ * Black and white cards (`scheme` in content/site.ts, alternating), so lime is
+ * the only color in the section. The surface and the text color are split:
+ * the surface belongs to the inner layer that tips back, the text color to
+ * the card itself, so the focus ring (currentColor) always contrasts with the
+ * card it sits on. Canvas cards carry a hairline edge, because they would
+ * otherwise vanish into the canvas section as they fall. Cards are not
+ * data-tone, so each also names its "Visit project" hover hint (lime text on
+ * ink, a lime band behind ink text on canvas) and the color the nav takes
+ * over it (`nav`, see NavProbe).
  */
-const TONE: Record<Project["tone"], { bg: string; fg: string }> = {
-  cobalt: { bg: "bg-cobalt", fg: "text-canvas hint-dark" },
-  peach: { bg: "bg-peach", fg: "text-ink hint-light" },
-  dark: { bg: "bg-ink", fg: "text-canvas hint-dark" },
-  accent: { bg: "bg-accent", fg: "text-ink hint-plain" },
-  plum: { bg: "bg-plum", fg: "text-canvas hint-dark" },
-  sand: { bg: "bg-sand", fg: "text-ink hint-light" },
+const SCHEME: Record<Project["scheme"], { bg: string; fg: string; nav: "ink" | "canvas"; edge: boolean }> = {
+  dark: { bg: "bg-ink", fg: "text-canvas hint-dark", nav: "canvas", edge: false },
+  light: { bg: "bg-canvas", fg: "text-ink hint-light", nav: "ink", edge: true },
 };
 
 /**
@@ -96,7 +94,7 @@ export function Evidence() {
  * perspective, with an ink veil to 0.5 inside the layer; the moment card 1
  * covers it, card 0 goes to opacity 0; card 1 holds; and so on. The last
  * card does not tip; it holds, then the wrapper ends and the stage scrolls
- * away into Certificates. So at most two cards are ever drawn, the one
+ * away into Experience. So at most two cards are ever drawn, the one
  * arriving and the one falling behind it, and scrolling back reverses it all.
  * Hidden cards keep visibility, so Tab still reaches every card (see
  * onCardFocus). The veil is opaque color faded with opacity, never element
@@ -107,8 +105,8 @@ export function Evidence() {
  * reload mid-stack never flashes the last card.
  *
  * The wrapper height is CSS, not a GSAP pin, so the document is its final
- * height from the first paint and the scenes below (Certificates,
- * Experience) never wait on a pin spacer.
+ * height from the first paint and the scene below (Experience) never
+ * waits on a pin spacer.
  *
  * Below md: no stage, no 3D. Cards stack edge to edge with no gap, image
  * above text. Under reduced motion at md+ there is no stage either: the
@@ -163,6 +161,43 @@ function EvidenceStack({ projects }: { projects: readonly Project[] }) {
         });
         // The last card's hold.
         tl.set({}, {}, (cards.length - 1) * STEP + HOLD);
+
+        // Full screen and flat: the card's title wears the lime highlighter.
+        // A card is flat from its landing through its hold; the last one
+        // stays flat until the stage scrolls away. Plain triggers on the
+        // wrapper's own scroll (not the scrubbed timeline), so the mark
+        // sweeps on its own CSS clock instead of creeping with the scroll.
+        const screen = () => stage.current?.offsetHeight ?? window.innerHeight;
+        const last = cards.length - 1;
+        cards.forEach((card, i) => {
+          ScrollTrigger.create({
+            trigger: wrap,
+            start: () => `top+=${i * STEP * screen()} top`,
+            end: () => (i === last ? "bottom top" : `top+=${(i * STEP + HOLD) * screen()} top`),
+            invalidateOnRefresh: true,
+            onToggle: (self) => {
+              card.dataset.active = String(self.isActive);
+            },
+          });
+        });
+        return () => cards.forEach((card) => (card.dataset.active = "false"));
+      });
+
+      // No stage (below md, or reduced motion): cards are plain blocks, and
+      // the one crossing the middle of the screen wears the highlighter.
+      mm.add("(max-width: 767px), (prefers-reduced-motion: reduce)", () => {
+        const cards = gsap.utils.toArray<HTMLElement>(".stack-card", scope.current ?? undefined);
+        cards.forEach((card) => {
+          ScrollTrigger.create({
+            trigger: card,
+            start: "top center",
+            end: "bottom center",
+            onToggle: (self) => {
+              card.dataset.active = String(self.isActive);
+            },
+          });
+        });
+        return () => cards.forEach((card) => (card.dataset.active = "false"));
       });
 
       // Trigger positions depend on the stack's offset, which depends on
@@ -201,7 +236,6 @@ function EvidenceStack({ projects }: { projects: readonly Project[] }) {
     else window.scrollTo({ top: y });
   };
 
-  const accentSlot = projects.findIndex((p) => p.tone === "accent");
 
   return (
     <div
@@ -210,7 +244,14 @@ function EvidenceStack({ projects }: { projects: readonly Project[] }) {
       // The stage (one screen) plus a hold per card plus a rise per card after the first.
       style={{ "--stack-h": `calc(${projects.length * STEP} * 100svh)` } as CSSProperties}
     >
-      {accentSlot >= 0 && <NavProbe slot={accentSlot} />}
+      {projects.map((project, i) => (
+        <NavProbe
+          key={project.index}
+          slot={i}
+          nav={SCHEME[project.scheme].nav}
+          last={i === projects.length - 1}
+        />
+      ))}
       <div
         ref={stage}
         className="flex flex-col md:motion-safe:sticky md:motion-safe:top-0 md:motion-safe:block md:motion-safe:h-svh md:motion-safe:overflow-clip"
@@ -225,26 +266,27 @@ function EvidenceStack({ projects }: { projects: readonly Project[] }) {
                 "aria-label": `${project.title}, opens in a new tab`,
               }
             : {};
-          const tone = TONE[project.tone];
-          const accent = project.tone === "accent";
+          const scheme = SCHEME[project.scheme];
           return (
             <Card
               key={project.index}
               {...linkProps}
               onFocus={project.href ? onCardFocus(i) : undefined}
-              className={`stack-card group relative block focus-visible:outline-current focus-visible:-outline-offset-8 md:h-svh md:motion-safe:absolute md:motion-safe:inset-0 md:motion-safe:[perspective:3600px] ${i > 0 ? "md:motion-safe:[transform:translateY(100%)]" : ""} ${tone.fg}`}
+              data-active="false"
+              className={`stack-card group relative block focus-visible:outline-current focus-visible:-outline-offset-8 md:h-svh md:motion-safe:absolute md:motion-safe:inset-0 md:motion-safe:[perspective:3600px] ${i > 0 ? "md:motion-safe:[transform:translateY(100%)]" : ""} ${scheme.fg}`}
             >
-              {/* Nav probe for the lime card where it is a plain block: below md, and under reduced motion. See NavProbe. */}
-              {accent && (
-                <span
-                  aria-hidden
-                  data-tone="accent"
-                  className="pointer-events-none invisible absolute inset-0 md:motion-safe:hidden"
-                />
-              )}
+              {/* Nav probe where the card is a plain block: below md, and under reduced motion. See NavProbe. */}
+              <span
+                aria-hidden
+                data-nav={scheme.nav}
+                className="pointer-events-none invisible absolute inset-0 md:motion-safe:hidden"
+              />
 
               {/* The layer that falls back. It carries the card color, so the section canvas shows around it once it tips. */}
-              <div data-fall className={`relative h-full md:origin-[50%_5.5rem] ${tone.bg}`}>
+              <div data-fall className={`relative h-full md:origin-[50%_5.5rem] ${scheme.bg}`}>
+                {scheme.edge && (
+                  <span aria-hidden className="pointer-events-none absolute inset-0 border border-[var(--line-on-light)]" />
+                )}
                 <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col gap-6 px-gutter py-12 md:gap-8 md:pt-[calc(var(--nav-h)+1.5rem)] md:pb-10">
                   {/*
                     Title row. Title top-left, index top-right. Below md the
@@ -254,7 +296,22 @@ function EvidenceStack({ projects }: { projects: readonly Project[] }) {
                   */}
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
                     <div className="min-w-0">
-                      <h3 className="font-display text-h2 uppercase text-balance md:text-display">{project.title}</h3>
+                      <h3 className="font-display text-h2 uppercase text-balance md:text-display">
+                        {/*
+                          Highlighter, the same mark as the hero selection and
+                          What I do: a solid lime fill (the one-color
+                          linear-gradient only exists so background-size can
+                          animate) that sweeps in from the left while the card
+                          is full screen (data-active, set by the triggers
+                          above) and out to the right as it falls. Ink on lime
+                          on both card colors. clone repaints it per line.
+                        */}
+                        <span
+                          className={`-mx-[0.08em] px-[0.08em] [-webkit-box-decoration-break:clone] [background-image:linear-gradient(var(--accent),var(--accent))] [background-repeat:no-repeat] [box-decoration-break:clone] [background-position:right_center] [background-size:0%_1em] group-data-[active=true]:text-ink group-data-[active=true]:[background-position:left_center] group-data-[active=true]:[background-size:100%_1em] motion-safe:transition-[background-size,color] motion-safe:duration-[420ms] motion-safe:ease-out-expo`}
+                        >
+                          {project.title}
+                        </span>
+                      </h3>
                       <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-body tabular-nums opacity-90 md:gap-x-3">
                         <span>{project.role}</span>
                         <span aria-hidden className="hidden h-[0.8em] w-px bg-current opacity-40 md:block" />
@@ -328,22 +385,26 @@ function EvidenceStack({ projects }: { projects: readonly Project[] }) {
 }
 
 /**
- * Nav probe for the lime card on the md+ stage. The nav turns ink over any
- * [data-tone="accent"] box under its strip, judged by geometry alone. The
- * stage stays stuck under the nav through the whole sequence, so the card's
- * own box would keep the nav ink over every card. This invisible box sits in
- * the scrolling wrapper instead, over the stretch of scroll that belongs to
- * the lime card: from where its top first meets the nav strip (it lands
- * slot * STEP screens in) until the next card has landed over it, STEP
- * screens later.
+ * Nav probe for one card on the md+ stage. The nav drops its difference blend
+ * and takes a plain color over any [data-nav] box under its strip, judged by
+ * geometry alone (difference over these card colors would turn red teal and
+ * brown blue). The stage stays stuck under the nav through the whole
+ * sequence, so a card's own box would claim the nav for every card. This
+ * invisible box sits in the scrolling wrapper instead, over the stretch of
+ * scroll where the card is flat and alone under the bar: from its landing
+ * (slot * STEP screens in) through its hold. While the next card rises the
+ * covered one tips back and the section canvas shows around its corners, so
+ * a plain color would vanish there (canvas on canvas); the bar blends again
+ * for the rise. The last card keeps its probe until the stage has scrolled
+ * away, since it leaves flat.
  */
-function NavProbe({ slot }: { slot: number }) {
+function NavProbe({ slot, nav, last }: { slot: number; nav: "ink" | "canvas"; last: boolean }) {
   return (
     <span
       aria-hidden
-      data-tone="accent"
+      data-nav={nav}
       className="pointer-events-none invisible absolute inset-x-0 hidden md:motion-safe:block"
-      style={{ top: `calc(${slot * STEP} * 100svh)`, height: `calc(${STEP} * 100svh)` }}
+      style={{ top: `calc(${slot * STEP} * 100svh)`, height: `calc(${last ? HOLD + 1 : HOLD} * 100svh)` }}
     />
   );
 }

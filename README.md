@@ -22,9 +22,8 @@ This is a one-page portfolio built as a playground. The type, the grid, and the 
 | **Strip** | "WEBSITE / MOBILE ENTHUSIAST" rides a curve across the seam from light to dark, scrubbed by scroll. |
 | **About** | The statement brightens word by word as it scrolls past the middle of the screen. |
 | **What I do** | A compact list that opens on hover, showing each service's image inside the row; the open title gets a lime highlighter mark. Tap on phones, keyboard friendly. |
-| **Evidence** | Six projects as full-screen colored cards. Each holds for a moment, then falls behind the next to a random side and disappears. |
-| **More evidence** | Verified certificates as a compact ledger; hovering a row turns it lime. |
-| **Experience** | From school to the current role. A giant year pinned to the middle of the screen rolls only the digits that change as each role passes it. |
+| **Evidence** | Six projects as full-screen black and white cards. Each holds for a moment with its title highlighted in lime, then falls behind the next to a random side and disappears. |
+| **Experience** | From school to the current role. A giant year pinned to the middle of the screen rolls only the digits that change as each role passes it; the current year and role turn lime. Below the roles, the year is selected and VERIFIED types over it as the certificates ledger arrives. |
 | **Footer** | LET'S TALK. rolls into LET'S LARP. when pressed, and the nav button follows. |
 
 Every animation respects `prefers-reduced-motion`, the whole page works with a keyboard, and all text meets WCAG AA contrast.
@@ -77,7 +76,7 @@ app/
   manifest.ts           /manifest.webmanifest
   favicon.ico, icon.png, apple-icon.png, opengraph-image.png, twitter-image.png
 components/
-  sections/             Nav, Hero, Strip, About, WhatIDo, Evidence, Certificates, Experience, Footer
+  sections/             Nav, Hero, Strip, About, WhatIDo, Evidence, Experience (with its Certificates ledger), Footer
   ui/                   Container, Corners, Reveal, SmoothScroll, ServiceAccordion, FooterHeadline
 content/
   site.ts               Every visible string, link, project, and role

@@ -59,6 +59,9 @@ export const about = {
   heading: "About",
   statement:
     "I work where the backend meets the screen. Most of my time goes into interfaces with Next.js, React, and Expo, and I go down to the database, the API, or the auth rules whenever a feature needs it. Good software should feel quiet to use.",
+  // Phrases of the statement that get the lime highlighter as the reader
+  // reaches them. Exact word runs from `statement`, punctuation ignored.
+  highlights: ["the backend meets the screen", "feel quiet to use"],
   portrait: { src: portraitImg, alt: `Portrait of ${site.name}` },
   facts: [
     { label: "Based in", value: "Malang, Indonesia (UTC+7)" },
@@ -104,7 +107,12 @@ export const evidenceHeading = "Evidence";
 
 /**
  * Web and mobile projects, newest first. `href` is the public link, or null
- * when there is none. `tone` picks the card color; see DESIGN.md.
+ * when there is none.
+ *
+ * `scheme` is the card's surface: "dark" is ink with canvas text, "light" is
+ * canvas with ink text. Cards alternate, starting dark, so the stack keeps
+ * its rhythm in black and white and lime stays the only color in the
+ * section (the title's highlighter while a card holds full screen).
  */
 export const projects = [
   {
@@ -118,7 +126,7 @@ export const projects = [
     summary:
       "A house manager for the home I rent with friends. Cleaning rotations, a guest log, bill splitting, and house rules replaced a spreadsheet and a group chat. Five residents use it every day.",
     image: `${STORAGE}/1785856154090-42m7wh-Portfolio-Post-19.png`,
-    tone: "cobalt",
+    scheme: "dark",
     href: "https://github.com/Phiniqq724/manage-kontrakan",
   },
   {
@@ -132,7 +140,7 @@ export const projects = [
     summary:
       "A small Eid project: log the THR money my friends and I received, then rank it. Built with Expo and Supabase in about three hours.",
     image: `${STORAGE}/1785912738269-0v6otk-Portfolio-Post-20.png`,
-    tone: "dark",
+    scheme: "light",
     href: "https://drive.google.com/file/d/1jxxmCQOmYOhAUTbEyhSRlBpLEJBrJ1H-/view?usp=sharing",
   },
   {
@@ -146,7 +154,7 @@ export const projects = [
     summary:
       "One booking system for around 10 SMK Edotel hotels across East Java, with room availability, reservations, and a virtual tour. Launched at Expo Expose SMK Jawa Timur in February 2026.",
     image: `${STORAGE}/1785856085273-0zb47s-Portfolio-Post-22.png`,
-    tone: "accent",
+    scheme: "dark",
     href: "https://myedotel.id/",
   },
   {
@@ -160,7 +168,7 @@ export const projects = [
     summary:
       "Our redesign of the SMK Telkom Malang website placed Top 10 out of around 300 teams at the Jagoan Hosting Infrastructure Competition 2025. I built the frontend, pulled in live Instagram posts, and wrote the copy.",
     image: `${STORAGE}/1785856194382-ezau1o-Portfolio-Post-23.png`,
-    tone: "peach",
+    scheme: "light",
     href: null,
   },
   {
@@ -174,7 +182,7 @@ export const projects = [
     summary:
       "A LinkedIn-style network for hundreds of SMK Telkom Malang students and staff. I led the frontend and built profiles, connections, and the activity feed.",
     image: `${STORAGE}/1785856176458-gzr4p8-Portfolio-Post-24.png`,
-    tone: "plum",
+    scheme: "dark",
     href: "https://telkom-society.smktelkom-mlg.sch.id/",
   },
   {
@@ -188,12 +196,12 @@ export const projects = [
     summary:
       "The student council election platform for SMK Telkom Malang, used by around 1,500 voters. I built the landing page and admin dashboard, then ran on-site support on election day.",
     image: `${STORAGE}/1785856213393-t8osyr-Portfolio-Post-21.png`,
-    tone: "sand",
+    scheme: "light",
     href: "https://e-pilketos.moklet.org/",
   },
 ] as const;
 
-export const certificatesHeading = "More evidence";
+export const certificatesHeading = "Verified";
 
 /** Verified certificates. Each links to its public verification page. */
 export const certificates = [

@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { animate, motion, motionValue, useSpring, useTransform, type MotionValue } from "motion/react";
+import { Caret } from "@/components/ui/Caret";
 import { Container } from "@/components/ui/Container";
+import { GAP_MS, SELECT_EASE, SELECT_MS, SELECTED_MS, TYPE_MS } from "@/lib/typing";
 import { hero, site } from "@/content/site";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -12,20 +14,12 @@ const REST_W = 600;
 const RADIUS = 320;
 
 /*
-  Typing timing. The headline only ever shows or hides one letter per step
-  on a timer, so the browser does a small layout of one line and nothing
-  else. (A blur-and-threshold SVG morph was tried first and nearly froze
-  Safari; do not bring per-frame filters back to this type.)
-  Typing libraries default to roughly 50 to 100ms per character and human
-  typing sits near 100ms, so letters appear at 85ms. A word is never erased
-  letter by letter: it is selected, like a quick mouse drag (a lime bar
-  sweeps across it in 420ms and rests 160ms so it registers), and the new
-  word types over the selection. Each word holds for 2.6s.
+  Typing timing comes from lib/typing.ts, shared with the Experience year.
+  The headline only ever shows or hides one letter per step on a timer, so
+  the browser does a small layout of one line and nothing else. (A
+  blur-and-threshold SVG morph was tried first and nearly froze Safari; do
+  not bring per-frame filters back to this type.) Each word holds for 2.6s.
 */
-const TYPE_MS = 85;
-const SELECT_MS = 420;
-const SELECTED_MS = 160;
-const GAP_MS = 150;
 const HOLD_MS = 2600;
 const FIRST_HOLD_MS = 3200;
 
@@ -77,24 +71,6 @@ function Letter({
 }
 
 /**
- * Zero-width caret. It takes no space in the line, so showing or hiding it
- * never shifts a letter; the visible bar hangs just after its position.
- */
-function Caret({ setRef }: { setRef: (el: HTMLSpanElement | null) => void }) {
-  return (
-    <span
-      ref={setRef}
-      hidden
-      aria-hidden
-      data-blink="false"
-      className="hero-caret relative inline-block h-[0.7em] w-0 align-baseline"
-    >
-      <span className="absolute left-[0.04em] top-0 h-full w-[0.07em] bg-current" />
-    </span>
-  );
-}
-
-/**
  * The hero. Four corners hold small facts; the headline holds the toys:
  * letter weights that follow the cursor, and a first word that is selected
  * and typed over, WEBSITE to MOBILE and back. Pressing the headline skips
@@ -107,7 +83,6 @@ export function Hero() {
   const h1Ref = useRef<HTMLHeadingElement>(null);
   const highlightRef = useRef<HTMLSpanElement>(null);
   const caretRef = useRef<HTMLSpanElement | null>(null);
-  const hovering = useRef(false);
   const settled = useRef(false);
   // Set by the controller effect; the headline button calls it.
   const swapRef = useRef<() => void>(() => {});
@@ -140,7 +115,6 @@ export function Hero() {
     if (!fine) return;
 
     const onMove = (e: PointerEvent) => {
-      hovering.current = true;
       if (!settled.current) return;
       els.current.forEach((el, i) => {
         if (!el || el.style.display === "none") return;
@@ -153,7 +127,6 @@ export function Hero() {
       });
     };
     const onLeave = () => {
-      hovering.current = false;
       weights.forEach((mv) => mv.set(REST_W));
     };
     section.addEventListener("pointermove", onMove);
@@ -168,8 +141,9 @@ export function Hero() {
     The typing loop. Everything here writes straight to the DOM on timers:
     letters toggle `display`, the caret toggles `hidden`, and the selection
     is one element scaled with the Web Animations API. Line one is selected
-    and retyped between WEBSITE and MOBILE. It advances only while the hero
-    is on screen, the tab is visible, and the pointer is not over the hero.
+    and retyped between WEBSITE and MOBILE. It advances while the hero is on
+    screen and the tab is visible, with or without the pointer over it, so
+    the swap plays on its own and nobody has to press anything.
     Pressing the headline skips the rest of a hold; presses mid-typing are
     ignored. Reduced motion: no loop and no caret, and a press swaps the word
     instantly.
@@ -226,8 +200,7 @@ export function Hero() {
       caret.hidden = !on;
       caret.dataset.blink = on && blink ? "true" : "false";
     };
-    const free = () =>
-      settled.current && onScreen && document.visibilityState === "visible" && !hovering.current;
+    const free = () => settled.current && onScreen && document.visibilityState === "visible";
 
     const typeInto = (group: HTMLElement[], done: () => void, i = 0) => {
       if (i >= group.length) {
@@ -268,7 +241,7 @@ export function Hero() {
       highlight.hidden = false;
       selection = highlight.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
         duration: SELECT_MS,
-        easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+        easing: SELECT_EASE,
         fill: "forwards",
       });
       selection.onfinish = () => {

@@ -424,7 +424,8 @@ These override everything above where they conflict.
   cols 1-7 and the email (`text-h3`, semibold, with a ↗ that nudges and
   turns lime on hover) plus the note sit in cols 8-12, bottom-aligned with
   TALK. Below md the email follows the headline 2rem under it.
-- Certificates: a dark ledger between Evidence and Experience, no lime
+- (Placement superseded below: the ledger now lives inside Experience.)
+  Certificates: a dark ledger between Evidence and Experience, no lime
   blocks. One `meta` ("More evidence") plus an `index` count, then one
   hairline row per certificate, each a single new-tab link to its
   verification page. md+: year cols 1-2, title (`text-h3`) 3-8, issuer
@@ -452,13 +453,74 @@ These override everything above where they conflict.
   spaced like normal type. Only the second word is the button (LET'S is
   plain heading text): hover turns that word lime, and in LARP. it is lime
   at rest and canvas on hover.
-- One divider per seam. A list does not draw a closing rule when something
-  right below already divides: the certificates ledger has top rules only
-  (the Experience heading and its first role rule follow), and the last
-  Experience role has no bottom rule (the footer's full-bleed top line
-  closes it). Two rules in a row read as lines stacking on each other,
-  most visibly on phones.
+- One divider per seam on phones. Below md a list does not draw a closing
+  rule when something right below already divides: the certificates ledger
+  has top rules only, and the last Experience role has no bottom rule (the
+  footer's full-bleed top line closes it). From md both closing rules show:
+  the gaps are wide enough there that they read as the end of the list, not
+  as lines stacking.
 - Experience "now": while the giant year belongs to the current role (the
   last entry), it turns lime (`data-now` on the year, 500ms color fade with
   the roll, back to canvas when scrolling up). Below md, where the giant
   year is hidden, the current role's period ("Jun 2026 - Now") is lime.
+- Evidence cards are black and white, alternating, starting with ink
+  (`scheme` in content/site.ts), so lime is the only color in the section.
+  (Thumbnail-derived Material colors were tried first; the owner preferred
+  monochrome.) Canvas cards carry a hairline edge so they still read as
+  they fall against the canvas section. While a card is full screen and
+  flat (landing through hold; the last card until the stage leaves), its
+  title wears the lime highlighter, the same mark as the hero selection and
+  What I do: sweeps in from the left over 420ms, ink text on lime, out to
+  the right as the card starts to fall. It is driven by plain
+  ScrollTriggers setting `data-active`, not the scrubbed timeline, so the
+  sweep runs on its own clock. Below md and under reduced motion the card
+  crossing the middle of the screen is the active one. Only canvas on ink
+  and ink on canvas (and ink on lime) are used.
+- Nav over Evidence: each card has an invisible `data-nav="ink|canvas"`
+  probe; the nav takes that plain color while the card is flat under it
+  (landing through hold) and blends again during the fall, when canvas
+  shows around the tipped card. The nav judges from a 1px line through its
+  middle, so exactly one surface decides at a time.
+- About statement highlights: the phrases in `about.highlights` ("the
+  backend meets the screen", "feel quiet to use") get the lime highlighter,
+  ink on lime. Each sweeps in (420ms, from the left) the moment the word
+  scrub brings the phrase's last word to full opacity, read from the same
+  ScrollTrigger's progress (`litAt`, capped at 0.98 so the closing phrase
+  cannot be missed by rounding), and out again when scrolling back above
+  that point. Reduced motion: highlighted from the start. Keep it to two or
+  three phrases, or the mark stops meaning anything.
+- Hero loop under the cursor: the WEBSITE / MOBILE select-and-type loop
+  no longer pauses while the pointer is over the hero (it filled the first
+  screen, so on desktop the loop looked stuck unless pressed). It now
+  advances whenever the hero is on screen and the tab is visible, so the
+  swap plays on its own; pressing still skips the hold. The headline stays
+  one press area, and there is no wave or breathing on it (several were
+  tried and dropped by the owner). Typing timing lives in `lib/typing.ts`
+  and the caret in `components/ui/Caret.tsx`, shared with Experience.
+- Certificates moved into Experience, under the roles: the same ledger
+  rows (year cols 1-2, title 3-8, issuer 9-11, arrow 12) across the full
+  width, no separate section, no `meta` (the page now has 2: hero corner
+  and footer). From md the year column spans one extra grid row, an empty
+  slot one year-height tall under the last role (`data-verified`), so the
+  sticky year comes to rest right above the ledger and never follows it
+  down. While the year is seated in that slot it reads VERIFIED
+  (`certificatesHeading`): the year is selected (lime bar, ink text) and
+  the word types in with a caret, centered on the year's line and sized
+  to fill the column exactly (font size = column width over the word's
+  measured width in em). Scrolling back up far enough that the year rides
+  again selects VERIFIED and types the year back. The swap runs at about
+  twice the hero's pace (select 260ms, rest 80ms, gap 60ms, 45ms per
+  letter), under a second in all. Swaps never overlap; one asked for
+  mid-swap runs after. Below md the year column is hidden, so VERIFIED is
+  a visible `text-display` heading over the ledger (sr-only from md).
+  Reduced motion swaps instantly.
+- Experience "now", revised: while the giant year belongs to the current
+  role, that role's title (`text-h2`) turns lime with the year. The
+  section title EXPERIENCE stays canvas and scrolls normally (pinning it
+  was tried and rejected by the owner).
+- About highlights run as one continuous marker stroke: the phrase's band
+  uses `box-decoration-break: slice`, so a phrase that wraps is one strip
+  cut across its lines (padding only at the phrase's two ends), and the
+  sweep runs along line one and continues on line two instead of every
+  line sweeping at once. 700ms, since it travels further than a one-line
+  mark. Other highlighter marks (hero, What I do, Evidence) keep `clone`.

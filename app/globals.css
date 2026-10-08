@@ -12,15 +12,10 @@
   --ink-2: #5c5b56;
   --line-on-light: rgba(20, 20, 19, 0.16);
   --line-on-dark: rgba(241, 240, 236, 0.18);
-  /* The one accent. A fill (a highlight, the active state, one Evidence
-     card), never small text on light. */
+  /* The one accent. A hint (a highlight, the active state, a hover), lime
+     text only on dark surfaces, never small text on light. Evidence card
+     colors are data, not tokens: see `color` in content/site.ts. */
   --accent: #d9f52c;
-
-  /* Evidence card palette. Each card owns one. All pairs verified AA. */
-  --cobalt: #2447f5;
-  --peach: #f3cdb0;
-  --plum: #5b4a6e;
-  --sand: #cfc7b4;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.83, 0, 0.17, 1);
@@ -66,10 +61,6 @@
   --color-canvas: var(--canvas);
   --color-ink: var(--ink);
   --color-accent: var(--accent);
-  --color-cobalt: var(--cobalt);
-  --color-peach: var(--peach);
-  --color-plum: var(--plum);
-  --color-sand: var(--sand);
 
   --font-display: var(--font-clash), "Helvetica Neue", Arial, sans-serif;
   --font-sans: var(--font-switzer), "Helvetica Neue", Arial, sans-serif;
@@ -220,12 +211,12 @@ body {
   font-family: var(--font-display);
 }
 
-/* Hero typing caret. Blinks only while a word holds; steps, not a fade. */
+/* Typing caret (hero, Experience year). Blinks only while a word holds; steps, not a fade. */
 @keyframes caret-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
-.hero-caret[data-blink="true"] {
+.type-caret[data-blink="true"] {
   animation: caret-blink 1.05s steps(1, end) infinite;
 }
 
